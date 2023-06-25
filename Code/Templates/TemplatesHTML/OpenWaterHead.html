@@ -1,0 +1,247 @@
+<html>
+<!-- Start OpenWaterHead.html -->
+<!-- Copyright (c) 2023 Bob Upshaw.  This software is covered under the Open Source MIT License  -->
+
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+<style>
+.thead {
+    background-color: yellow;
+}
+.small {
+	font-size: small;
+}
+.HeadingTitle {
+	font-size: 150%;
+	font-weight: bold;
+	line-height: 100%;
+	text-align: left;
+	padding-bottom: 2%;
+}
+.CategorysTable {
+	line-height: 100%;
+	max-width: 100%;
+	width: 100%;
+	line-height: 1;
+}
+.CategorysTableRecognition {
+	line-height: 100%;
+	max-width: 100%;
+	width: 100%;
+	line-height: 1;
+}
+.CategoryRow {
+	padding-top: 50px;
+}
+.CategoryRow {
+}
+.LeftColumn {
+	width: 8%;
+	padding-left: 4%;
+	padding-right: 0;
+	padding-bottom: 1%;
+	font-size: 160%;
+	vertical-align:top;
+}
+.LeftColumnRecognition {
+	width: 3%;
+	padding-left: 4%;
+	padding-right: 0;
+	padding-bottom: 1%;
+	font-size: 160%;
+	vertical-align:top;
+}
+.LeftColumnSwimmer {  /* not used... ? */
+	width: 8%;
+	padding-left: 4%;
+	padding-right: 0;
+	padding-bottom: 1%;
+	font-size: 160%;
+	vertical-align:top;
+}
+
+.MiddleColumn {
+	width: 2%;
+	vertical-align:top;
+	text-align: center;
+}
+.MiddleColumnRecognition {
+	width: 2%;
+	vertical-align:top;
+	text-align: center;
+}
+
+.RightColumn {
+	width: 40%;
+	vertical-align:top;
+	padding-left: 5%;
+}
+.RightColumnRecognition {
+	width: 40%;
+	vertical-align:top;
+	padding-left: 5%;
+}
+
+
+.SingleSwimmerTable {
+/*	border-width: 2px;
+	border-spacing: 2px;
+	border-collapse: separate;
+	border-style: solid;
+	padding: 5;
+*/
+	border-color: black;
+	border: solid 1px;
+	width: 100%;
+}
+.SingleSwimmerRowOdd {
+	background-color: #D9D9D9;
+}
+.SingleSwimmerRowEven {
+	background-color: #FFFFFF;
+}
+
+.SingleSwimmerHeadingLeft {
+	font-size: 140%;
+	font-weight: 600;
+	line-height: 90%;
+	text-align: left;
+	padding: 8;
+	width: 40%;
+	border-right-style: solid;
+	border-right-width: 1px;
+	border-right-color: black;
+}
+.SingleSwimmerHeadingMiddle {
+	font-size: 100%;
+	font-weight: 400;
+	line-height: 90%;
+	text-align: left;
+	width: 30%;
+	border-right-style: solid;
+	border-right-width: 1px;
+	border-right-color: black;
+}
+.SingleSwimmerHeadingRight {
+	font-size: 100%;
+	font-weight: 400;
+	line-height: 90%;
+	text-align: left;
+}
+
+.H1Class {
+	margin: 0px;
+}
+H2 {
+	margin: 0px;
+}
+</style>
+<link rel="stylesheet" type="text/css" 
+	href="https://cdn.datatables.net/1.11.4/css/jquery.dataTables.min.css">
+
+<!-- Importing jQuery and DataTables JavaScript -->
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.4/js/jquery.dataTables.min.js"></script>
+
+<!--  
+<script type="text/javascript" src="{SupportDir}/jquery-1.11.3.min.js"></script> 
+-->
+<script type="text/javascript" src="{SupportDir}/jquery.floatThead.min.js"></script> 
+
+
+
+<script>
+function ponclick( passedID ) {
+	var mydisplay = document.all[passedID].style.display;
+	if( mydisplay == "none" ) {
+		mydisplay = "";
+	} else {
+		mydisplay = "none";
+	}
+	document.all[passedID].style.display=mydisplay;
+	return false;	
+}
+
+function pOnClickForKey( keyID, keyTitleID, paraKey ) {
+	document.all[keyID].style.display="";
+	document.all[keyTitleID].style.display="";
+	document.all[paraKey].style.display="none";
+	return false;	
+}
+
+function PointsOnClick( anchor ) {
+	document.all[DisplayKey].style.display="";
+	document.all[DisplayKeyTitle].style.display="";
+	window.location.hash = "DisplayKey-Awards";
+	// the following fixes a bug in floatThread
+	window.scrollTo(window.scrollX, window.scrollY - 40);
+	return true;	
+}
+
+// example:  file:///Users/bobup/Development/AccumulateResultsOpenWater/aPMS/2015PacMasters/2015PacMastersAccumulatedResults.html?open=W_45_49_1_237
+// Calling     getQueryVariable("open") returns "W_45_49_1_237"
+// example:  file:///Users/bobup/Development/AccumulateResultsOpenWater/aPMS/2015PacMasters/2015PacMastersAccumulatedResults.html
+// Calling     getQueryVariable("open") returns ""
+function getQueryVariable(variable) {
+       var query = window.location.search.substring(1);
+       var vars = query.split("&");
+       for (var i=0;i<vars.length;i++) {
+		   var pair = vars[i].split("=");
+		   if(pair[0] == variable){ return pair[1]; }
+       }
+       return(false);
+}
+
+$(document).ready(function() {
+	var val = getQueryVariable( "open" );
+	if( val != "" ) {
+		ponclick( val );
+		window.location.hash = val + "-head";
+		// the following fixes a bug in floatThread
+		window.scrollTo(window.scrollX, window.scrollY - 40);
+	}
+});
+
+$(document).ready(function() {
+	/*
+	* jQuery.floatThead - see http://mkoryak.github.io/floatThead/ for this good work by
+	*	Misha Koryak.
+	*/
+	$('table.Category').floatThead( {
+		useAbsolutePositioning: false
+	});
+	
+});
+
+</script>
+
+<style>
+</style>
+
+<title>Pacific Masters Open Water Challenge </title>
+</head>
+
+<body>
+
+<p>
+<center>
+<a href="/"><img border="0" src="{HeadGif}" width="{HeadGifWidth}" height="{HeadGifHeight}"></a>
+</center>
+<p>&nbsp;</p>
+<center>
+<H1 class="H1Class">Pacific Masters Open Water Challenge</H1>
+<H2>Covering the years {StartYear} through {EndYear}
+<div class="small">Generated: {generateDate}</div>
+</center>
+<br>&nbsp;</br>
+<h3>
+(introduction / explanation / rules go here)
+{ExtraHeadNotes}
+</h3>
+
+
+<p>&nbsp;</p>
+
+<!-- End OpenWaterHead.html -->

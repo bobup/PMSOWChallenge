@@ -1,0 +1,9 @@
+<!-- CategoryHeader.html>
+
+		<tr>
+			<td>{CategoryName}</td>
+			<td>:</td>
+			<td>{NumSwimmersInCategory}</td>
+		</tr>
+
+<!-- end of CategoryHeader.html>

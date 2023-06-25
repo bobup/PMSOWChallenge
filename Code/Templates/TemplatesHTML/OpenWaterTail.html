@@ -1,0 +1,154 @@
+<!-- Start OpenWaterTail.html -->
+<p>&nbsp;</p>
+<p id="keytoreadingresults">&nbsp;</p>
+<div style="text-indent:1.5cm">
+<p id="ParaForKey">Click to view the 
+	<a href="" onclick="return pOnClickForKey('DisplayKey', 'DisplayKeyTitle', 'ParaForKey')"
+	style="font-size:x-large">
+	Key to reading the results.
+	</a>
+</p>
+</div>
+<h3 id="DisplayKeyTitle" style="display:none">Key:</h3>
+<ol title="key" id="DisplayKey" style="display:none">
+	<li id="teams">Teams:  Each swimmer is associated with exactly one team in the above results.  
+			The team abbreviation is given in the following forms:
+		<ul>
+			<li>Un-quoted string, e.g. WCM.  This is a valid team.</li>
+			<li>UC38, which is valid and represents "unattached in Pacific Masters", allowing a swimmer to swim on
+				behalf of no team.</li>
+			<li>A quoted string, e.g. "ZAPM", which is a team not recognized as a 
+				valid team yet still score points.</li>
+			<li>The special string "(none)", which means that no team was entered by the swimmer
+				when entering their open water races AND we couldn't determine a team from the PacMasters database.</li>
+		</ul>
+		For every PacMasters swimmer their team association is based on their USMS registration, NOT the team they 
+		wrote down when entering any open water event.  Note that this affects the overall team standings.
+		If a team cannot be determined from the PacMasters database 
+		(as with non-PacMasters swimmers) the team used will be determined from the swimmer's open water entries.
+	</li>
+	&nbsp;
+	<li>Points:  A swimmer is awarded points for every swim greater than 500 meters in which they place in the top 10 for
+		their age group and gender.  (This year only the best {numSwimsToConsider} finishes of the year are considered.)  The
+		points are awarded based on place:
+		<table border="1">
+			<tr align="center" valign="center">
+				<th width=65>Place</th><th>Points Earned</th>
+			</tr>
+			<tr align="center" valign="center">
+				<td>1st</td><td>22</td>
+			</tr>
+			<tr align="center" valign="center">
+				<td>2nd</td><td>18</td>
+			</tr>
+			<tr align="center" valign="center">
+				<td>3rd</td><td>16</td>
+			</tr>
+			<tr align="center" valign="center">
+				<td>4th</td><td>14</td>
+			</tr>
+			<tr align="center" valign="center">
+				<td>5th</td><td>12</td>
+			</tr>
+			<tr align="center" valign="center">
+				<td>6th</td><td>10</td>
+			</tr>
+			<tr align="center" valign="center">
+				<td>7th</td><td>8</td>
+			</tr>
+			<tr align="center" valign="center">
+				<td>8th</td><td>6</td>
+			</tr>
+			<tr align="center" valign="center">
+				<td>9th</td><td>4</td>
+			</tr>
+			<tr align="center" valign="center">
+				<td>10th</td><td>2</td>
+			</tr>
+		</table>
+	</li>
+
+	&nbsp;
+	<!-- <a name="awards"></a> -->
+	<li id="DisplayKey-Awards">Awards:  Swimmers will receive special awards based on their place in their gender, age group, and
+		category of their suit (1 or 2.)  Typically 1st through 3rd places receive awards, but this can change.
+		However, to be eligible for an award a swimmer must swim the minimum number of events ({MinSwimsForAward}) in their category.
+		Swimmers who have yet to swim the minimum number of events will show their place in <font color="#FF9691">light red</font>.
+	</li> 
+
+	&nbsp;
+	<li>Swimmer details:  Each swimmer name in the above results is a link, and when clicked,
+		details of that swimmer's swims for the year are displayed.  These details include:
+		<ul>
+			<li>Teams:  The team the swimmer is registered with for USMS, and also the team(s) the swimmer 
+				has registered under for this year's open water races.  
+				See the above description of <a href=#teams>Teams</a> to see how this
+				is handled and how it affects the team competition.</li>
+			<li>Age Group: The swimmer's age group.  A swimmer will be assigned to exactly
+				one age group which is based on their age on December 31st of the year of the
+				open water season.</li>
+			<li>Races:  The list of open water races this swimmer competed in this year.  
+				Along with each race name the following information is presented:
+				<ul>
+					<li>The Race #:  the number of the race for this swimmer, e.g. Race #1 is
+						the first race swum by this swimmer this year, Race #3 is the third
+						race swum by this swimmer this year.</li>
+					<li>The "Event ID" of this race.  Often an open water event is considered two 
+						different events, one for Category 1 swimmers, and another for Category 2 swimmers.
+						For example, the
+						Berryessa 1 Mile race is open to both Category 1 and 
+						Category 2 swimmers, so we consider that event as two different events.  This is to allow points 
+						accumulation to be separately computed for Category 1 and Category 2 swims.  
+						A complete list of open water events that we are considering for this year (so far)
+						are listed above (see the <a href="#cat1events">Category 1 Events</a> and the 
+						<a href="#cat2events">Category 2 Events</a>.)
+						As a real example, the details of a race might
+						say:
+						<ul><li style="font-size: 80%">
+						Race #1,&nbsp;&nbsp;Event ID 3: 2010 Parkside Aquatic 1 Mile
+						</li></ul>
+						which means that this swimmer's first race of 2010 was event ID #3
+						hosted in 2010, and that event was the Parkside 1 Mile.</li>
+					<li>Their place in that race.  It's possible that a swimmer is awarded a place by the
+						race officials, but later their place is "upgraded" to a better place.  This happens
+						when non-PacMasters swimmers are removed from the results, causing other swimmers
+						to "slide up" in the results.</li>
+					<li>The distance and their time for the race</li>
+				</ul>
+			</li>
+			<li>Metrics:  The total distance this swimmer swam in all open water races, the
+				total time they swam, and their average 1 mile time.</li>
+		</ul>
+
+	&nbsp;
+	<li>Beginning in 2011 there are 2 open water points divisions for Pacific Masters events;
+	    one for swimmers 
+		wearing Category 1 suits; the other for swimmers wearing Category 2 suits.  
+		The division in which a swimmer has highest points will be used to determine their 
+		place in the open water points competition.  A swimmer can only be declared overall 
+		winner in one division.
+		<p>See the <a href="http://pacificmasters.org/content/swimwear-open-water">swim suit rules</a>
+			for an explanation of the two different categories of suits.
+	</li>
+
+	&nbsp;
+	<li>Please report any errors to the  
+	{OpenWaterScoringChairperson}.</li>
+
+</ol>
+		
+		
+		
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+<!-- bup:  {currentDateTime} -->
+<!-- RSIND: {RSIDNFileName} -->
+
+<center>
+<a href="/"><img border="0" src="{TailGif}" width="{TailGifWidth}" height="{TailGifHeight}"></a>
+</center>
+
+</body>
+<!-- End OpenWaterTail.html -->
+</html>
