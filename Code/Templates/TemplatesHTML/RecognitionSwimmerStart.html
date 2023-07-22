@@ -1,12 +1,14 @@
 <!-- RecognitionSwimmerStart.html  -->
+							<!-- {SwimmerId} -->
 
 		<tr>
 			<td>
 			<td colspan="2">
 				<table id="SingleSwimmer" class="SingleSwimmerTable">
 					<thead>
-						<tr class="{SingleSwimmerRowClass}">
-							<th  class="SingleSwimmerHeadingLeft">{SwimmerName}</th>
+						<tr class="{SingleSwimmerRowClass}" id="{ChallengerID}-head">
+							<th  class="SingleSwimmerHeadingLeft">
+								<a href="" onclick="return pOnClickClass('{ChallengerID}')">{SwimmerName}</th>
 							<th  class="SingleSwimmerHeadingMiddle">{SwimmerCount} open water swims</th>
 							<th  class="SingleSwimmerHeadingRight">Total of {TotalDistance} miles</th>
 						</tr>

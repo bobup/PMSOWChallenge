@@ -5,7 +5,7 @@
 #   It will push the Open Water Challenge results to the Dev OW points page, e.g.:
 #			http://www.pacmdev.org/points/OWChallenge/
 #	ONLY IF the "????PacMastersOWChallengeResults.html" file exists in the 
-#   "Generated files" directory.
+#   "Generated files" directory. ('????' is the current year.)
 #
 # PASSED:
 #	n/a
@@ -57,6 +57,9 @@ if [ -e "${CURRENT_YEAR}PacMastersOWChallengeResults.html" ] ; then
 	mkdir -p $DESTINATION_DIR
     rm -rf $DESTINATION_DIR/*
 	cp -r *  $DESTINATION_DIR
+	pushd $DESTINATION_DIR >/dev/null
+	rm -f OWChallenge.html
+	ln -s "${CURRENT_YEAR}PacMastersOWChallengeResults.html" OWChallenge.html
 	LogMessage "OW Challenge pushed to dev by $SIMPLE_SCRIPT_NAME on $USERHOST" "$(cat <<- BUp9 
 		Destination File: $DESTINATION_DIR/${CURRENT_YEAR}PacMastersOWChallengeResults.html
 		(STARTed on $STARTDATE, FINISHed on $(date +'%a, %b %d %G at %l:%M:%S %p %Z'))

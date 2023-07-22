@@ -96,6 +96,7 @@ templateSearchPath TemplatesHTML
 
 # name:					count:
 Trout			->		5			# a Trout has 5 to 9 OW swims...
+#Trout			->		1			# a Trout has 1 to 9 OW swims...  (debugging)
 Manatee			->		10
 Salmon			->		25
 Shark			->		50

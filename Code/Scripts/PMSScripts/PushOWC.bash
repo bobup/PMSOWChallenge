@@ -57,8 +57,15 @@ scp -p $TARBALL pacmasters@pacmasters.pairserver.com:$PRODDIRECTORY
 # archive old Challenge files and untar the new one in its place
 # Also clean out old tar files.
 ssh pacmasters@pacmasters.pairserver.com \
-	"( cd $PRODDIRECTORY; tar zcf Attic/$OWDIRARCHIVE $OWDIR; rm -f $OWDIR/*.html $OWDIR/*.txt ; tar xf $TARBALL; mv $TARBALL Attic; cd Attic; ls -tp | grep -v '/$' | grep $OWDIR | tail -n +21 | xargs -I {} rm -- {}; ls -tp | grep -v '/$' | grep OW_ | tail -n +21 | xargs -I {} rm -- {} )"
-
+	"( cd $PRODDIRECTORY; tar zcf Attic/$OWDIRARCHIVE $OWDIR; rm -f $OWDIR/*.html $OWDIR/*.txt ; \
+	tar xf $TARBALL; mv $TARBALL Attic; cd Attic; \
+	ls -tp | grep -v '/$' | grep $OWDIR | tail -n +21 | xargs -I {} rm -- {}; ls -tp | \
+	grep -v '/$' | grep OWC_ | tail -n +21 | xargs -I {} rm -- {} )"
+#ssh pacmasters@pacmasters.pairserver.com \
+#	"( cd $PRODDIRECTORY/$OWDIR; rm -f OWChallenge.html; \
+#		ln -s ${CURRENT_YEAR}PacMastersOWChallengeResults.html OWChallenge.html )"
+		
+		
 # clean up old tarballs keeping only the most recent 60
 cd $TARDIR >/dev/null
 ls -tp | grep -v '/$' | tail -n +61 | xargs -I {} rm -- {}

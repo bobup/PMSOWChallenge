@@ -6,153 +6,23 @@
 <meta http-equiv="Content-Language" content="en-us">
 <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
 
-<style>
-.thead {
-    background-color: yellow;
-}
-.small {
-	font-size: small;
-}
-.HeadingTitle {
-	font-size: 150%;
-	font-weight: bold;
-	line-height: 100%;
-	text-align: left;
-	padding-bottom: 2%;
-}
-.CategorysTable {
-	line-height: 100%;
-	max-width: 100%;
-	width: 100%;
-	line-height: 1;
-}
-.CategorysTableRecognition {
-	line-height: 100%;
-	max-width: 100%;
-	width: 100%;
-	line-height: 1;
-}
-.CategoryRow {
-	padding-top: 50px;
-}
-.CategoryRow {
-}
-.LeftColumn {
-	width: 8%;
-	padding-left: 4%;
-	padding-right: 0;
-	padding-bottom: 1%;
-	font-size: 160%;
-	vertical-align:top;
-}
-.LeftColumnRecognition {
-	width: 3%;
-	padding-left: 4%;
-	padding-right: 0;
-	padding-bottom: 1%;
-	font-size: 160%;
-	vertical-align:top;
-}
-.LeftColumnSwimmer {  /* not used... ? */
-	width: 8%;
-	padding-left: 4%;
-	padding-right: 0;
-	padding-bottom: 1%;
-	font-size: 160%;
-	vertical-align:top;
-}
-
-.MiddleColumn {
-	width: 2%;
-	vertical-align:top;
-	text-align: center;
-}
-.MiddleColumnRecognition {
-	width: 2%;
-	vertical-align:top;
-	text-align: center;
-}
-
-.RightColumn {
-	width: 40%;
-	vertical-align:top;
-	padding-left: 5%;
-}
-.RightColumnRecognition {
-	width: 40%;
-	vertical-align:top;
-	padding-left: 5%;
-}
-
-
-.SingleSwimmerTable {
-/*	border-width: 2px;
-	border-spacing: 2px;
-	border-collapse: separate;
-	border-style: solid;
-	padding: 5;
-*/
-	border-color: black;
-	border: solid 1px;
-	width: 100%;
-}
-.SingleSwimmerRowOdd {
-	background-color: #D9D9D9;
-}
-.SingleSwimmerRowEven {
-	background-color: #FFFFFF;
-}
-
-.SingleSwimmerHeadingLeft {
-	font-size: 140%;
-	font-weight: 600;
-	line-height: 90%;
-	text-align: left;
-	padding: 8;
-	width: 40%;
-	border-right-style: solid;
-	border-right-width: 1px;
-	border-right-color: black;
-}
-.SingleSwimmerHeadingMiddle {
-	font-size: 100%;
-	font-weight: 400;
-	line-height: 90%;
-	text-align: left;
-	width: 30%;
-	border-right-style: solid;
-	border-right-width: 1px;
-	border-right-color: black;
-}
-.SingleSwimmerHeadingRight {
-	font-size: 100%;
-	font-weight: 400;
-	line-height: 90%;
-	text-align: left;
-}
-
-.H1Class {
-	margin: 0px;
-}
-H2 {
-	margin: 0px;
-}
-</style>
-<link rel="stylesheet" type="text/css" 
-	href="https://cdn.datatables.net/1.11.4/css/jquery.dataTables.min.css">
-
-<!-- Importing jQuery and DataTables JavaScript -->
-<script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script type="text/javascript" src="https://cdn.datatables.net/1.11.4/js/jquery.dataTables.min.js"></script>
-
-<!--  
-<script type="text/javascript" src="{SupportDir}/jquery-1.11.3.min.js"></script> 
--->
-<script type="text/javascript" src="{SupportDir}/jquery.floatThead.min.js"></script> 
-
-
-
 <script>
+function pOnClickClass( passedClass ) {
+	const myelements = document.getElementsByClassName( passedClass );
+	for( let i=0; i < myelements.length; i++ ) {
+		let mydisplay = myelements[i].style.display;
+		if( mydisplay == "none" ) {
+			mydisplay = "";
+		} else {
+			mydisplay = "none";
+		}
+		myelements[i].style.display = mydisplay;
+	}
+	return false;	
+}
+
+
+
 function ponclick( passedID ) {
 	var mydisplay = document.all[passedID].style.display;
 	if( mydisplay == "none" ) {
@@ -217,8 +87,6 @@ $(document).ready(function() {
 
 </script>
 
-<style>
-</style>
 
 <title>Pacific Masters Open Water Challenge </title>
 </head>
@@ -226,20 +94,58 @@ $(document).ready(function() {
 <body>
 
 <p>
+<!--
+---remove the following because when displayed on pms site they will show logo...
 <center>
-<a href="/"><img border="0" src="{HeadGif}" width="{HeadGifWidth}" height="{HeadGifHeight}"></a>
+<a href="https://www.pacificmasters.org/"><img border="0" src="{HeadGif}" width="{HeadGifWidth}" height="{HeadGifHeight}"></a>
 </center>
+-->
+<div id="MainContentDiv"></div>
 <p>&nbsp;</p>
 <center>
 <H1 class="H1Class">Pacific Masters Open Water Challenge</H1>
 <H2>Covering the years {StartYear} through {EndYear}
-<div class="small">Generated: {generateDate}</div>
+<div class="small"  style="font-size: small">Generated: {generateDate}</div>
 </center>
 <br>&nbsp;</br>
 <h3>
-(introduction / explanation / rules go here)
-{ExtraHeadNotes}
+<center>The Pacific Masters Open Water Challenge recognizes our members' accumulated 
+Open Water swims!</center>
 </h3>
+
+
+<div style="margin:0 10% 0 10%;">
+How does it work? For every  Pacific Masters sanctioned open water swim that 
+a Pacific Masters swimmer successfully completes beginning with the 2021 season, 
+that swimmer will receive 
+credit for one swim. 
+Complete 5 total open water swims successfully, and the swimmer earns "Trout" status. 
+The swimmer will elevate to "Manatee" with the 10th successfully completed swim, and so on. 
+<br>
+<b>Guidelines:</b> 
+<ul class="explanation">
+	<li class="explanation">A swimmer can compete in both Suit category 1 and 2. 
+		All Open Water swims ("wetsuit" and "non-wetsuit") count for this challenge.</li>
+	<li class="explanation">All successfully completed sanctioned swims longer than 500m count.</li>
+	<li class="explanation">When swimming at a festival (for example, Lake Berryessa, Del Valle, Santa Cruz, or Keller Cove) 
+		each event swum counts as one swim.</li>
+</ul>
+</div>
+
+<div style="margin:0 8% 0 8%;">
+<b>Hints:</b>
+<ul class="explanation">
+	<li class="explanation">Within each different status (Trout, Manatee, etc.) swimmers are ordered first by number
+		of swims, and then by total distance swum.</li>
+	<li class="explanation">Want to see more details about a swimmer's OW accomplishments? 
+		Just click on their name.</li>
+	<li class="explanation">Want to see more details about a particular year's Open Water
+		swims for a specific swimmer? After clicking on their name select the suit category swims
+		desired (either Cat 1 or Cat 2, depending on which suit categories they swam in).</li>
+</ul>
+</div>
+
+{ExtraHeadNotes}
 
 
 <p>&nbsp;</p>
