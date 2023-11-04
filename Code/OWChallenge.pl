@@ -8,6 +8,7 @@
 # PERL modules and initialization to help compiling
 ####################
 use File::Basename;
+###use File::Path qw( make_path );
 use POSIX qw(strftime);
 use Cwd 'abs_path';
 my $appProgName;
@@ -41,6 +42,9 @@ my %totalNumSwimmers;	# this hash contains the total number of swimmers seen in 
 		# $totalNumSwimmers{"xxxx"} contains the total number of swimmers in the year xxxx, and
 		# $totalNumSwimmers{"all"} contains the total number of unique swimmers seen in all years processed.
 my $INVALID_SWIMMERS_NAME;
+
+my $accessLogHandle;
+
 
 
 
@@ -105,6 +109,11 @@ BEGIN {
 	$INVALID_SWIMMERS_NAME = "(unknown name)";
 
 }
+
+# access log...
+###make_path( "../Access/OWChallenge/", {mode => '0750'} );
+###open( $accessLogHandle, ">>", "../Access/OWChallenge/access.txt" );
+###print $accessLogHandle "Accessed on: $currentDateTime\n";
 
 ####################
 # Usage string

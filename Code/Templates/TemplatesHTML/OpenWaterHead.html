@@ -6,6 +6,8 @@
 <meta http-equiv="Content-Language" content="en-us">
 <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
 
+<script type="text/javascript" src="Support/jquery-1.11.3.min.js"></script> 
+
 <script>
 function pOnClickClass( passedClass ) {
 	const myelements = document.getElementsByClassName( passedClass );
@@ -75,14 +77,24 @@ $(document).ready(function() {
 });
 
 $(document).ready(function() {
-	/*
-	* jQuery.floatThead - see http://mkoryak.github.io/floatThead/ for this good work by
-	*	Misha Koryak.
-	*/
-	$('table.Category').floatThead( {
-		useAbsolutePositioning: false
-	});
-	
+	$.post( "../Access/access.php", { 
+		application : "OWChallenge"
+		} );	
+});
+
+
+$(document).ready(function() {
+	/* This code is the original work of George Martsoukos (2022). 
+	** See https://webdesign.tutsplus.com/protect-html-email-links--cms-41203t */
+    const links = document.querySelectorAll("[data-part1][data-part2][data-part3]");
+    for (const link of links) {
+		const attrs = link.dataset;
+		link.setAttribute(
+		"href",
+		"mailto:" + attrs.part1 + "@" + attrs.part2 + "." + attrs.part3 + "?subject=" + attrs.subject
+		);
+		link.textContent = attrs.part1 + "@" + attrs.part2 + "." + attrs.part3;
+	}
 });
 
 </script>
@@ -143,6 +155,13 @@ The swimmer will elevate to "Manatee" with the 10th successfully completed swim,
 		swims for a specific swimmer? After clicking on their name select the suit category swims
 		desired (either Cat 1 or Cat 2, depending on which suit categories they swam in).</li>
 </ul>
+
+<br>&nbsp;<br>
+
+<p><b>Questions, corrections, comments?</b> Please email 
+<a href="" data-part1="owchallenge" data-part2="pacificmasters" data-part3="org" 
+	data-subject="Pacific%20Masters%20OWChallenge"></a>
+
 </div>
 
 {ExtraHeadNotes}

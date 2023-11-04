@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# PushOWC.bash - push Open Water Challenge files from dev to production
+# ProdPushOWC.bash - push Open Water Challenge files from dev to production
 #	Push generated files from the dev OWChallenge page to production.
 #
 # This script assumes that this host can talk to production using its public key.  If that isn't
@@ -48,9 +48,24 @@ LogMessage() {
 		BUpLM
 } # end of LogMessage()
 
+# update the OWChallenge file to correct an imbedded URL for access counting:
+cd /usr/home/pacdev/public_html/pacmdev.org/sites/default/files/comp/points/$OWDIR > /dev/null
+sed  -e '\;$\.post( "../Access/access.php;s//$.post( "https:\/\/data.pacificmasters.org\/points\/Access\/access.php/' \
+	OWChallenge.html >tempOWC
+cp OWChallenge.html OWChallenge.html.save
+cp tempOWC OWChallenge.html
+
+# now construct TAR file with modified OWChallenge file:
 cd /usr/home/pacdev/public_html/pacmdev.org/sites/default/files/comp/points > /dev/null
 tar czf $TARBALL $OWDIR
 mv $TARBALL $TARDIR
+
+# go back and put the OWChallenge file back to the way it was:
+cd /usr/home/pacdev/public_html/pacmdev.org/sites/default/files/comp/points/$OWDIR > /dev/null
+cp OWChallenge.html.save OWChallenge.html
+rm -f OWChallenge.html.save tempOWC
+
+# now send our tar file to production:
 cd $TARDIR >/dev/null
 # push tarball to production
 scp -p $TARBALL pacmasters@pacmasters.pairserver.com:$PRODDIRECTORY

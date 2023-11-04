@@ -1,14 +1,16 @@
 #!/bin/bash
 
 
-# PushOWC2Dev.bash - this script is intended to be executed on the PMS Dev machine ONLY.  
+# DevPushOWC.bash - this script is intended to be executed on the PMS Dev machine ONLY.  
 #   It will push the Open Water Challenge results to the Dev OW points page, e.g.:
 #			http://www.pacmdev.org/points/OWChallenge/
 #	ONLY IF the "????PacMastersOWChallengeResults.html" file exists in the 
 #   "Generated files" directory. ('????' is the current year.)
 #
 # PASSED:
-#	n/a
+#	Either nothing or some string. If some string then the current OWChallenge html file is NOT pushed
+#		with it's name, but instead a name that ends with "....-test.html" (same with the log file).
+#		If this argument is empty then test files (if any) are removed.
 #
 #	This script is assumed to be located in the OW Challenge PMSScripts directory.
 #
@@ -40,8 +42,9 @@ LogMessage() {
 
 
 # Get to work!
+mytest=$1;
 
-echo ""; echo '******************** Begin' "$0"
+echo ""; echo '******************** Begin' "$0" $mytest
 
 # compute the full path name of the directory holding this script.  We'll find the
 # Generated files directory relative to this directory:
@@ -55,16 +58,29 @@ GENERATED_DIR=`pwd -P`
 if [ -e "${CURRENT_YEAR}PacMastersOWChallengeResults.html" ] ; then
 	# yes!  get to work:
 	mkdir -p $DESTINATION_DIR
-    rm -rf $DESTINATION_DIR/*
-	cp -r *  $DESTINATION_DIR
-	pushd $DESTINATION_DIR >/dev/null
-	rm -f OWChallenge.html
-	ln -s "${CURRENT_YEAR}PacMastersOWChallengeResults.html" OWChallenge.html
-	LogMessage "OW Challenge pushed to dev by $SIMPLE_SCRIPT_NAME on $USERHOST" "$(cat <<- BUp9 
-		Destination File: $DESTINATION_DIR/${CURRENT_YEAR}PacMastersOWChallengeResults.html
-		(STARTed on $STARTDATE, FINISHed on $(date +'%a, %b %d %G at %l:%M:%S %p %Z'))
-		BUp9
-		)"
+	if [ .$mytest != . ] ; then
+		# special case push...
+		cp -f "${CURRENT_YEAR}PacMastersOWChallengeResults.html" \
+			"$DESTINATION_DIR/${CURRENT_YEAR}PacMastersOWChallengeResults-test.html"
+		cp -f "${CURRENT_YEAR}PacMastersOWChallengeResultsLog.txt" \
+			"$DESTINATION_DIR/${CURRENT_YEAR}PacMastersOWChallengeResultsLog-test.txt"
+		LogMessage "OW Challenge TEST pushed to dev by $SIMPLE_SCRIPT_NAME on $USERHOST" "$(cat <<- BUp9 
+			Destination File: $DESTINATION_DIR/${CURRENT_YEAR}PacMastersOWChallengeResults-test.html
+			(STARTed on $STARTDATE, FINISHed on $(date +'%a, %b %d %G at %l:%M:%S %p %Z'))
+			BUp9
+			)"
+	else
+		rm -rf $DESTINATION_DIR/*
+		cp -r *  $DESTINATION_DIR
+		pushd $DESTINATION_DIR >/dev/null
+		rm -f OWChallenge.html
+		ln -s "${CURRENT_YEAR}PacMastersOWChallengeResults.html" OWChallenge.html
+		LogMessage "OW Challenge pushed to dev by $SIMPLE_SCRIPT_NAME on $USERHOST" "$(cat <<- BUp9 
+			Destination File: $DESTINATION_DIR/${CURRENT_YEAR}PacMastersOWChallengeResults.html
+			(STARTed on $STARTDATE, FINISHed on $(date +'%a, %b %d %G at %l:%M:%S %p %Z'))
+			BUp9
+			)"
+	fi
 fi
 
 popd >/dev/null
