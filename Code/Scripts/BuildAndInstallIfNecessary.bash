@@ -44,6 +44,16 @@ OWCPushDate=`ssh pacmasters@pacmasters.pairserver.com \
 	"( date -r $OWCFILE )"`
 echo "OWPUSHDATE='$OWPUSHDATE', OWCPushDate='$OWCPushDate'"
 
+# if we can't find results for OW then we're going to pretend that the last OW results were created on 
+# Jan 1 of the current year. This will handle the case of the first run of a new year. In that case, it will
+# appear that the OW results have changed, thus a new OWChallenge page will be generated with the new year
+# in the title but with no other changes. The next time this script runs it will think that the OWChallenge page
+# is "newer" than the OW points page thus nothing will be generated. Eventually a new OW points page will be
+# generated causing a new OWChallenge page to be generated, as it should.
+if [ ".$OWPUSHDATE" == . ] ; then
+	OWPUSHDATE="Jan 1"
+fi
+
 # is the date of the last push of OW points more recent than the date of the last push of OWChallenge?
 # convert the two dates into integers for easy comparison:
 DATEOFLASTOWPUSH=`date -d "$OWPUSHDATE" +%s`

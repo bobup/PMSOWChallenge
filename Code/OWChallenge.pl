@@ -33,6 +33,7 @@ my %cumulations;	# $cumulations{ID} - set to ID, which is the USMS Swimmer ID of
 					#	all the years processed so far.
 					# $cumulations{ID-distance-YEAR} - sum of total miles swum for swimmer with 
 					#	USMS swimmer id of ID during the year YEAR.
+					# $cumulations{ID-team-YEAR} - the team for this swimmer for this year
 					# $cumulations{ID-distance-0} - sum of total miles swum for swimmer with 
 					#	USMS swimmer id of ID over all the years processed so far.
 					# $cumulations{ID-name} - first M last of swimmer with USMS swimmer id of ID
@@ -456,15 +457,14 @@ if( $PMSConstants::debug > 0 ) {
 # below.  The lower the minumum the more swimmers that are reported. Set the minimum very high to turn
 # off debugging.
 my $minDebugPoints = 9999;
-my $debugSwimmerId = "03JCS";
+my $debugSwimmerId = "xxxxxxx";
 
 my $categoriesRef = PMSMacros::GetCategoryArrayRef();
 my $numCategories = InitializeCategories( $categoriesRef, $startYear, $endYear );
 
 if( $PMSConstants::debug > 0 ) {
-	my $categoriesRef = PMSMacros::GetCategoryArrayRef();
 	print "Debugging: Categories:\n";
-	foreach my $i (1..$numCategories) {
+	foreach my $i (0..$numCategories) {
 		print "Name: " . $categoriesRef->[$i]{"name"} . ", ";
 		print "minCount: " . $categoriesRef->[$i]{"minCount"} . ", ";
 		print "maxCount: " . $categoriesRef->[$i]{"maxCount"} . "\n";
@@ -508,7 +508,7 @@ foreach my $workingYear ( $startYear..$endYear ) {
 		my $eventid = $resultHash->{'eventid'};
 		my $suitCat = $resultHash->{'Category'};
 		if( $usmsSwimmerId eq $debugSwimmerId ) {
-#			print "usmsSwimmerId: '$usmsSwimmerId', eventid='$eventid', suitCat='$suitCat'. 1st query; '$selectStr'\n";
+			print "usmsSwimmerId: '$usmsSwimmerId', eventid='$eventid', suitCat='$suitCat'. 1st query; '$selectStr'\n";
 		}
 		# the following InitializeSwimmer() does nothing if we've seen this swimmer before:
 		my $isValidSwimmer = InitializeSwimmer( \%cumulations, $usmsSwimmerId, $startYear, $endYear, $workingYear );
@@ -518,21 +518,21 @@ foreach my $workingYear ( $startYear..$endYear ) {
 			# get the distance of this Swim
 			$selectDistanceStr =~ s/xxxx/$eventid/;
 			if( $usmsSwimmerId eq $debugSwimmerId ) {
-#				print "usmsSwimmerId: '$usmsSwimmerId', distance query; '$selectDistanceStr'\n";
+				print "usmsSwimmerId: '$usmsSwimmerId', distance query; '$selectDistanceStr'\n";
 			}
 			my( $sth2, $rv2 ) = PMS_MySqlSupport::PrepareAndExecute( $dbh, $selectDistanceStr );
 			my $resultHash2;
 			if( defined( $resultHash2 = $sth2->fetchrow_hashref ) ) {
 				my $distance = $resultHash2->{'Distance'};
 				if( $usmsSwimmerId eq $debugSwimmerId ) {
-#					print "year: $workingYear, eventid: $eventid, distance=$distance, cat=$suitCat\n";
-#					print "BEFORE: cumulations{$usmsSwimmerId-$workingYear-$suitCat} = " . 
-#						$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}  . "\n";
+					print "year: $workingYear, eventid: $eventid, distance=$distance, cat=$suitCat\n";
+					print "BEFORE: cumulations{$usmsSwimmerId-$workingYear-$suitCat} = " . 
+						$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}  . "\n";
 				}
 				$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}++;
 				if( $usmsSwimmerId eq $debugSwimmerId ) {
-#					print "AFTER: cumulations{$usmsSwimmerId-$workingYear-$suitCat} = " . 
-#						$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}  . "\n";
+					print "AFTER: cumulations{$usmsSwimmerId-$workingYear-$suitCat} = " . 
+						$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}  . "\n";
 				}
 				$cumulations{ $usmsSwimmerId . "-distance-$workingYear"} += $distance;
 				$cumulations{ $usmsSwimmerId . "-distance-0"} += $distance;
@@ -540,11 +540,29 @@ foreach my $workingYear ( $startYear..$endYear ) {
 					print "year: $workingYear, eventid: $eventid, distance=$distance, total so far=" . 
 						$cumulations{ $usmsSwimmerId . "-distance-$workingYear"} . "\n";
 				}
+				# get the team this swimmer swam for (if we don't have it already):
+				my $swimmersTeamForThisYear = $cumulations{ $usmsSwimmerId . "-team-$workingYear"};
+				if( $swimmersTeamForThisYear eq "?" ) {
+					# get the team this swimmer swam for during this year:
+					my $selectTeam = "SELECT RegisteredTeamInitialsStr as Team from RSIDN_$workingYear " .
+						"WHERE USMSSwimmerId='$usmsSwimmerId'";
+					my( $sth3, $rv3 ) = PMS_MySqlSupport::PrepareAndExecute( $dbh, $selectTeam );
+					if( defined( my $resultHash3 = $sth3->fetchrow_hashref ) ) {
+						# remember this swimmer's team
+						$cumulations{ $usmsSwimmerId . "-team-$workingYear"} = $resultHash3->{'Team'};
+					} else {
+						# we couldn't find the team this swimmer swam for!
+						PMSLogging::DumpWarning( "", 0, "${appProgName}: Unable to find Team for " .
+							"USMSId '$usmsSwimmerId in RSIND. Query='$selectTeam'", 1 );
+						$cumulations{ $usmsSwimmerId . "-team-$workingYear"} = "??";
+					}
+				} # end of get the team...
 			}
 		
 		}
 	}
-	
+
+
 	foreach my $id (keys %cumulations) {
 		if( index( $id, "-" ) == -1 ) {
 			# $id is the key to a hash for a unique swimmer
@@ -567,10 +585,11 @@ foreach my $workingYear ( $startYear..$endYear ) {
 		}
 	}
 	
+	print "  Number of swimmers for '$workingYear': $totalNumSwimmers{$workingYear}\n";
+
 	if( $PMSConstants::debug > 0 ) {
-		print "Number of swimmers for '$workingYear': $totalNumSwimmers{$workingYear}\n";
-		foreach my $i (1..$numCategories) {
-			print "  Number of swimmers in the " . $categoriesRef->[$i]{"name"} . " category: " .
+		foreach my $i (0..$numCategories) {
+			print "    Number of swimmers in the " . $categoriesRef->[$i]{"name"} . " category: " .
 				$categoriesRef->[$i]{$workingYear . "-swimmers"} . "\n";
 		}
 	}
@@ -579,16 +598,60 @@ foreach my $workingYear ( $startYear..$endYear ) {
 
 # Now pass through our %cumulations hash table and get some numbers:
 
+my $numChangedTeams = 0;
+my $numChangedTeamsTroutOrBetter = 0;
 foreach my $id (keys %cumulations) {
 	if( index( $id, "-" ) == -1 ) {
 		# $id is the key to a hash for a unique swimmer
 		$totalNumSwimmers{"all"}++;
-	}
+		if( 1 ) {
+			# did we have any swimmers who changed teams during the time covered by this run of OWChallenge?
+			my $team = undef;
+			foreach my $workingYear ( $startYear..$endYear ) {
+				if( $cumulations{$id . "-team-$workingYear"} ne "?" ) {
+					if( defined $team ) {
+						if( $cumulations{$id . "-team-$workingYear"} ne $team ) {
+							# we found a swimmer who changed teams...
+							# how many swims for this swimmer?
+							my $numSwims = $cumulations{$id . "-0"};
+							# how many swims required to get listed on our page?
+							my $numMinSwims = $categoriesRef->[1]{"minCount"};
+							if( $PMSConstants::debug >= 10 ) {
+								if( $PMSConstants::debug >= 5 ) {
+									print "Found a swimmer who changed teams in $workingYear from $team to " .
+										$cumulations{$id . "-team-$workingYear"} . ": " .
+										$cumulations{$id . "-name"} . "($numSwims swims)\n";
+								}
+								if( $PMSConstants::debug < 5 ) {
+									if( $numSwims >= $numMinSwims ) {
+										print "Found a swimmer who changed teams in $workingYear from $team to " .
+											$cumulations{$id . "-team-$workingYear"} . ": " .
+											$cumulations{$id . "-name"} . "($numSwims swims)\n";
+									}
+								}
+							}
+							$numChangedTeams++;
+							if( $numSwims >= $numMinSwims ) {
+								$numChangedTeamsTroutOrBetter++;
+							}
+							# we're done with this swimmer...
+							last;
+						} # else this swimmer's team didn't change
+					} else {
+						# this is the first time we found a team for this swimmer
+						$team = $cumulations{$id . "-team-$workingYear"};
+					}
+				} # else this swimmer didn't swim this year
+			} # end of foreach my $workingYear....
+		}
+	} # end of if( index( $id...
 }
 
-if( $PMSConstants::debug > 0 ) {
+#if( $PMSConstants::debug > 0 ) {
 	print "Total number of swimmers: $totalNumSwimmers{'all'}\n";
-}
+	print "Total number of swimmers who changed teams at least once from $startYear through $endYear: $numChangedTeams\n";
+	print "Number of swimmers Trout or better who changed teams: $numChangedTeamsTroutOrBetter\n";
+#}
 
 # Generate the HTML output:
 GenerateHTMLResults( $startYear, $endYear, \%cumulations );
@@ -628,9 +691,9 @@ sub GetSwimmersName( $$ ) {
 		$yearOfBirth = $resultHash->{"DateOfBirth"};
 		$yearOfBirth =~ s/-.*$//;
 	} else {
-		if( $PMSConstants::debug > 10 ) {
+#		if( $PMSConstants::debug > 10 ) {
 			print "ERROR in GetSwimmersName(): USMSId '$USMSId' not found in RSIND. Query='$query'\n";
-		}
+#		}
 	}
 	
 	return ($name, $gender, $yearOfBirth);
@@ -661,6 +724,7 @@ sub InitializeSwimmer( $$$$$ ) {
 				$cumulationsRef->{"$usmsSwimmerId-$workingYear-1"} = 0;
 				$cumulationsRef->{"$usmsSwimmerId-$workingYear-2"} = 0;
 				$cumulationsRef->{"$usmsSwimmerId-distance-$workingYear"} = 0;
+				$cumulationsRef->{"$usmsSwimmerId-team-$workingYear"} = "?";
 			}
 			$cumulationsRef->{"$usmsSwimmerId-0"} = 0;
 			$cumulationsRef->{"$usmsSwimmerId-distance-0"} = 0;
@@ -677,7 +741,7 @@ sub InitializeSwimmer( $$$$$ ) {
 #		InitializeWorkingYear( $categoriesRef, $numCategories, $workingYear );
 sub InitializeWorkingYear( $$$ ) {
 	my ($categoriesRef, $numCategories, $workingYear) = @_;
-	foreach my $i (1..$numCategories) {
+	foreach my $i (0..$numCategories) {
 		$categoriesRef->[$i]{"$workingYear-swimmers"} = 0;
 	}
 } # end of InitializeWorkingYear()
@@ -698,14 +762,14 @@ sub InitializeTotalNumberSwimmers( $$$ ) {
 
 sub InitializeCategories( $$$ ) {
 	my ($categoriesRef, $startYear, $endYear) = @_;
-	my $numCategories = scalar( @{$categoriesRef} ) - 1;		# start at 1, not 0!
+	my $numCategories = scalar( @{$categoriesRef} );		# start at 0!
 
 	# here we're creating another (fake) category to help with further processing
-	$categoriesRef->[$numCategories+1]{"name"} = "fake";
-	$categoriesRef->[$numCategories+1]{"minCount"} = 99999999;
-	$categoriesRef->[$numCategories+1]{"maxCount"} = 99999999;
+	$categoriesRef->[$numCategories]{"name"} = "fake";
+	$categoriesRef->[$numCategories]{"minCount"} = 99999999;
+	$categoriesRef->[$numCategories]{"maxCount"} = 99999999;
 
-	foreach my $i (1..$numCategories) {
+	foreach my $i (0..$numCategories-1) {
 		foreach my $workingYear ( $startYear..$endYear ) {
 			$categoriesRef->[$i]{$workingYear . "-swimmers"} = 0;
 		}
@@ -736,7 +800,7 @@ sub InitializeCategories( $$$ ) {
 sub UpdateCategoryCount( $$$$ ) {
 	my( $categoriesRef, $numCategories, $workingYear, $swimmersCount ) = @_;
 	if( $swimmersCount >= $categoriesRef->[1]{"minCount"} ) {
-		# this swimmer has enough OW swims to belong to one of the categories...
+		# this swimmer has enough OW swims to belong to one of the REAL categories...
 		foreach my $i (1..$numCategories) {
 			if( ($swimmersCount >= $categoriesRef->[$i]{"minCount"}) &&
 				($swimmersCount <= $categoriesRef->[$i]{"maxCount"}) ) {
@@ -744,7 +808,10 @@ sub UpdateCategoryCount( $$$$ ) {
 					last;
 			}
 		}
-	} # else this swimmer doesn't have enough OW swims to affect any category
+	} else {
+		# else this swimmer doesn't have enough OW swims to affect a REAL category - count them as a pre-trout
+		$categoriesRef->[0]{$workingYear . "-swimmers"}++;
+	}
 } # end of UpdateCategoryCount()
 
 
@@ -801,7 +868,7 @@ sub GenerateHTMLResults( $$$ ) {
 	####################
 	# Begin processing our templates, generating our accumulated result file in the process
 	####################
-	if( $PMSConstants::debug == 0 ) {
+	if( $PMSConstants::debug >= 0 ) {
 		print "GenerateHTMLResults(): starting...";
 	}
 	
@@ -812,6 +879,7 @@ sub GenerateHTMLResults( $$$ ) {
 	PMSTemplate::ProcessHTMLTemplate( $templateCategoryDefinitionStart_PathName, $generatedFileHandle );
 	my $categoriesRef = PMSMacros::GetCategoryArrayRef();
 	my $numCategories = scalar( @{$categoriesRef} ) - 2;		# start at 1, not 0! And ignore the fake highest one
+#for( my $i = $numCategories; $i >= 0; $i-- ) {
 	for( my $i = $numCategories; $i > 0; $i-- ) {
 		my $minSwimsForThisCategory = $categoriesRef->[$i]{"minCount"};
 		my $maxSwimsForThisCategory = $categoriesRef->[$i]{"maxCount"};
@@ -831,6 +899,7 @@ sub GenerateHTMLResults( $$$ ) {
 	
 	# display the recognition section...
 	PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSectionStart_PathName, $generatedFileHandle );
+#for( my $i = $numCategories; $i >= 0; $i-- ) {
 	for( my $i = $numCategories; $i > 0; $i-- ) {
 		my $numSwimmers = $categoriesRef->[$i]{$endYear . "-swimmers"};
 		my $numSwimmersString = "No swimmers (yet)";
@@ -844,7 +913,7 @@ sub GenerateHTMLResults( $$$ ) {
 		PMSStruct::GetMacrosRef()->{"CategoryName"} = $categoriesRef->[$i]{"name"};
 		PMSStruct::GetMacrosRef()->{"NumSwimmersInCategory"} = $numSwimmersString;
 		PMSTemplate::ProcessHTMLTemplate( $templateRecognitionStart_PathName, $generatedFileHandle );
-
+#next if( $i == 0 );
 		if( $numSwimmers > 0 ) {
 			PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmersListStart_PathName, $generatedFileHandle );
 			# we've got some swimmers in this category - display details on each swimmer
@@ -867,6 +936,9 @@ sub GenerateHTMLResults( $$$ ) {
 				PMSStruct::GetMacrosRef()->{"TotalDistance"} = $cumulationsRef->{ $USMSId . "-distance-0"};
 				PMSStruct::GetMacrosRef()->{"ChallengerID"} = PMSStruct::GetMacrosRef()->{"CategoryName"} . 
 					"_$count"; 
+			
+				my $lastYear = GetSwimmersLastYear( $USMSId );
+				PMSStruct::GetMacrosRef()->{"LatestTeam"} = $cumulationsRef->{ $USMSId . "-team-$lastYear"};
 				PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmerStart_PathName, $generatedFileHandle );
 				
 				# supply OW details for this swimmer:
@@ -905,6 +977,7 @@ sub GenerateHTMLResults( $$$ ) {
 						PMSStruct::GetMacrosRef()->{"year"}	= $workingYear;
 						PMSStruct::GetMacrosRef()->{"OWSwims"}	= $numOWSwims;
 						PMSStruct::GetMacrosRef()->{"OWMiles"}	= $cumulationsRef->{ $USMSId . "-distance-$workingYear"};
+						PMSStruct::GetMacrosRef()->{"ThisYearsTeam"} = $cumulationsRef->{ $USMSId . "-team-$workingYear"};						
 						PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmerDetail_PathName, $generatedFileHandle );
 					}
 				}
@@ -923,6 +996,10 @@ sub GenerateHTMLResults( $$$ ) {
 
 	# all done with the page
 	PMSTemplate::ProcessHTMLTemplate( $templateOpenWaterTail_PathName, $generatedFileHandle );
+
+	if( $PMSConstants::debug >= 0 ) {
+		print "GenerateHTMLResults(): All done.\n";
+	}
 
 	close( $generatedFileHandle );
 } # end of GenerateHTMLResults()
@@ -984,7 +1061,7 @@ sub GetPathName($$$) {
 	
 	# couldn't find the file - assume this is an error (but not fatal)
 	PMSLogging::DumpError( "", 0, "${appProgName}::GetPathName(): Unable to find a path to '$fileName' " .
-		"(using root '$rootDir' - PROBABLY WILL CAUSE A FATAL ERROR LATER!". 1 );
+		"(using root '$rootDir' - PROBABLY WILL CAUSE A FATAL ERROR LATER!", 1 );
 	PMSLogging::DumpArray( \@pathArray, "Search path used in above error", 0 );
 	return "(invalid path from GetPathName)";
 	
@@ -1078,5 +1155,21 @@ sub GetNextMemberOfCategory() {
 	
 	return $result;
 } # end of GetNextMemberOfCategory()
+
+
+# 				my $lastYear = GetSwimmersLastYear( $USMSId );
+sub GetSwimmersLastYear( $ ) {
+	my $USMSId = $_[0];
+	my $result = 0;
+	
+	for( my $workingYear = $endYear; $workingYear >= $startYear; $workingYear-- ) {
+		if( $cumulations{"$USMSId-team-$workingYear"} ne "?" ) {
+			$result = $workingYear;
+			last;
+		}
+	}
+	return $result;
+} # end of GetSwimmersLastYear()
+
 
 # end of OWChallenge.pl

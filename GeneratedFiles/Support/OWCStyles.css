@@ -110,17 +110,30 @@ li.explanation {
 	line-height: 90%;
 	text-align: left;
 	padding: 8;
-	width: 40%;
+	width: 30%; 
 	border-right-style: solid;
 	border-right-width: 1px;
 	border-right-color: black;
 }
+
+.SingleSwimmerHeadingTeam {
+	font-size: 100%;
+	font-weight: 400;
+	line-height: 90%;
+	text-align: left;
+	width: 20%;
+	border-right-style: solid;
+	border-right-width: 1px;
+	border-right-color: black;
+}
+
+
 .SingleSwimmerHeadingMiddle {
 	font-size: 100%;
 	font-weight: 400;
 	line-height: 90%;
 	text-align: left;
-	width: 30%;
+	width: 20%;
 	border-right-style: solid;
 	border-right-width: 1px;
 	border-right-color: black;

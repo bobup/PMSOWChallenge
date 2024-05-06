@@ -95,6 +95,7 @@ templateSearchPath TemplatesHTML
 >categories
 
 # name:					count:
+pre-Trout		->		1
 Trout			->		5			# a Trout has 5 to 9 OW swims...
 #Trout			->		1			# a Trout has 1 to 9 OW swims...  (debugging)
 Manatee			->		10
