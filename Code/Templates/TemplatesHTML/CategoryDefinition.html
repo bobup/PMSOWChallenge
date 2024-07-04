@@ -1,9 +1,11 @@
 <!-- CategoryDefinition.html -->
 		
-		<tr class="CategoryRow">
+		<tr class="CategoryRow {trStyle}>
 			<td class="LeftColumn">{CategoryName}</td>
 			<td class="MiddleColumn">:</td>
-			<td class="RightColumn">{RangeOfSwimsInCategory}</td>
+			<td class="RightColumn">{RangeOfSwimsInCategory} {HotSpot}</td>
+			<td class="PatchColumn" id="{CategoryName}"> <img src="Support/patches/{ThePatch}" style="width:40px" 
+				onclick="PatchClick( 'Support/patches/{ThePatch}', '{CategoryName}', 1 )"></td>
 		</tr>
 
 <!-- end of CategoryDefinition.html -->

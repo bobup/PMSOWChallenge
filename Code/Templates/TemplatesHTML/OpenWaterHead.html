@@ -10,6 +10,29 @@
 <script type="text/javascript" src="Support/jquery-1.11.3.min.js"></script> 
 
 <script>
+
+
+function TogglePreTrout( event ) {
+		var r = confirm( "Show Pre-Trout? (It could be quite large!)" );
+		if( r ) {
+			var objs = document.getElementsByClassName('CategoryRowPreTrout');
+			for( i=0; i < objs.length; i++ ) {
+				objs[i].style.display="table-row";
+			}
+		
+		
+		
+		
+//			document.getElementById("CategoryRowPreTrout").style.display="table-row";
+		}
+}  // end of TogglePreTrout()
+
+
+
+
+
+
+
 function pOnClickClass( passedClass ) {
 	const myelements = document.getElementsByClassName( passedClass );
 	for( let i=0; i < myelements.length; i++ ) {
@@ -66,6 +89,28 @@ function getQueryVariable(variable) {
        }
        return(false);
 }
+
+
+// PatchClick - handle a click on the thumbnail image of a patch on the OWChallenge page.
+// PASSED:
+//
+function PatchClick( thePatch, categoryName, size ) {
+//	alert( "thePatch=" + thePatch + ", and categoryName=" + categoryName );
+//	window.open( thePatch );
+	var width = 150;
+	if( size == 2 ) {
+		width = 40;
+	}
+	size = 3 - size;
+	var inner = "<img src='" + thePatch + "' style='width:" + width + "px' " +
+		"onclick='PatchClick( \"" + thePatch + "\", \"" + categoryName + "\", \"" + size + "\" )'" +
+		">";
+
+//		"onclick='PatchClick( '" + thePatch + ",' " + categoryName + "', " + size + ")" +
+
+
+	document.getElementById( categoryName ).innerHTML = inner;
+} // end of PatchClick()
 
 $(document).ready(function() {
 	var val = getQueryVariable( "open" );
@@ -134,6 +179,9 @@ that swimmer will receive
 credit for one swim. 
 Complete 5 total open water swims successfully, and the swimmer earns "Trout" status. 
 The swimmer will elevate to "Manatee" with the 10th successfully completed swim, and so on. 
+There is no need to sign up for the Challenge. Your entrance into the Challenge, point 
+tallies, and movement up through the five recognition tiers are automatically tracked 
+for you as results are tabulated from each Pacific masters open water race.  
 <br>
 <b>Guidelines:</b> 
 <ul class="explanation">
@@ -143,6 +191,18 @@ The swimmer will elevate to "Manatee" with the 10th successfully completed swim,
 	<li class="explanation">When swimming at a festival (for example, Lake Berryessa, Del Valle, Santa Cruz, or Keller Cove) 
 		each event swum counts as one swim.</li>
 </ul>
+
+<b>Achievement Patches:</b><br>
+Beginning June 1, 2024, at Lake Berryessa, and continued throughout each summer 
+thereafter at Pacific Masters open water events, members of the Pacific Masters 
+Open Water committee will hand out Pacific Masters Open Water Challenge patches. 
+Please look for committee members at event registration tables and after swims. 
+Teammates and coaches may pick up patches for swimmers not in attendance. Wish to 
+refuse all earned patches? Or perhaps you’d prefer electronic patches instead? 
+Please send your requests to 
+<a href="" data-part1="owchallenge" data-part2="pacificmasters" data-part3="org" 
+	data-subject="Pacific%20Masters%20OWChallenge"></a>
+
 </div>
 
 <div style="margin:0 8% 0 8%;">

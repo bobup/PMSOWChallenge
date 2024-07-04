@@ -39,7 +39,7 @@ li.explanation {
 .CategoryRow {
 }
 .LeftColumn {
-	width: 8%;
+	width: 7%;
 	padding-left: 4%;
 	padding-right: 0;
 	padding-bottom: 1%;
@@ -47,7 +47,7 @@ li.explanation {
 	vertical-align:top;
 }
 .LeftColumnRecognition {
-	width: 3%;
+	width: 8%;
 	padding-left: 4%;
 	padding-right: 0;
 	padding-bottom: 1%;
@@ -75,7 +75,7 @@ li.explanation {
 }
 
 .RightColumn {
-	width: 40%;
+	width: 16%;
 	vertical-align:top;
 	padding-left: 5%;
 }
@@ -84,7 +84,11 @@ li.explanation {
 	vertical-align:top;
 	padding-left: 5%;
 }
-
+.PatchColumn {
+	width: 20%;
+	vertical-align:top;
+	padding-left: 5%;
+}
 
 .SingleSwimmerTable {
 /*	border-width: 2px;

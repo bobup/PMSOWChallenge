@@ -95,13 +95,13 @@ templateSearchPath TemplatesHTML
 >categories
 
 # name:					count:
-pre-Trout		->		1
-Trout			->		5			# a Trout has 5 to 9 OW swims...
-#Trout			->		1			# a Trout has 1 to 9 OW swims...  (debugging)
-Manatee			->		10
-Salmon			->		25
-Shark			->		50
-Whale			->		100
+pre-Trout		->		1		->	pretrout.jpg
+Trout			->		5		->	Trout.jpg		# a Trout has 5 to 9 OW swims...
+#Trout			->		1		->	Trout.jpg		# a Trout has 1 to 9 OW swims...  (debugging)
+Manatee			->		10		->	Manatee.jpg
+Salmon			->		25		->	Salmon.jpg
+Shark			->		50		->	Shark.jpg
+Whale			->		100		->	Whale.jpg
 
 >endcategories
 

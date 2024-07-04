@@ -145,14 +145,12 @@ where all arguments are optional:
 	-h - display help text then quit
 
 Compute the total number of open water swims performed by each PMS swimmer during the
-range of years from the "StartYear" (defined in the properties.txt file) and the passed year.
-Use the SwimmerEventHistory table to collect all swims for each swimmer during those years, and then
-use the RSIND table for those years to map USMSSwimmerIds to swimmer names. 
-
-????
-
-Update the table 'Cumulative'
-to contain the sums calculated for this year per swimmer, and for all years covered by Cumulative per swimmer.
+range of years from the "StartYear" through "EndYear". The default StartYear is 2021, but this can be overridden 
+by the property file, and both are overridden by an argument passed to this app, if any. The default endYear
+is the current year, but this can be overridden by the property file, and both are overridden by an argument 
+passed to this app.
+Uses the SwimmerEventHistory table to collect all swims for each swimmer during those years, and then
+uses the RSIND table for those years to map USMSSwimmerIds to swimmer names. 
 bup
 ;
 
@@ -457,7 +455,7 @@ if( $PMSConstants::debug > 0 ) {
 # below.  The lower the minumum the more swimmers that are reported. Set the minimum very high to turn
 # off debugging.
 my $minDebugPoints = 9999;
-my $debugSwimmerId = "xxxxxxx";
+my $debugSwimmerId = "xxxxx";
 
 my $categoriesRef = PMSMacros::GetCategoryArrayRef();
 my $numCategories = InitializeCategories( $categoriesRef, $startYear, $endYear );
@@ -484,10 +482,11 @@ foreach my $workingYear ( $startYear..$endYear ) {
 		# special case: if we're processing OW swims for the current year we can't look in the history
 		# tables, but instead we'll look in the current OW Points tables
 		print "workingYear = '$workingYear' which is the same as yearBeingProcessed\n";
-		$selectStr = "SELECT SUBSTRING(RegNum, 6, 5) AS USMSSwimmerId, Swim.EventId as eventid, Events.Category FROM " .
+#		$selectStr = "SELECT SUBSTRING(RegNum, 6, 5) AS USMSSwimmerId, Swim.EventId as eventid, Events.Category FROM " .
+		$selectStr = "SELECT RegNum, Swim.EventId as eventid, Events.Category FROM " .
 			"RegNums Join Swim Join Events WHERE Swim.SwimmerId = RegNums.SwimmerId " .
 			"AND Events.EventId = Swim.EventId " .
-	  		"ORDER BY USMSSwimmerId";
+	  		"ORDER BY RegNum";
 		$selectDistanceStr = "SELECT Distance from Events where EventId = xxxx";
 	} else {
 		# use our OW history
@@ -504,7 +503,18 @@ foreach my $workingYear ( $startYear..$endYear ) {
 	my $selectDistanceStrCopy = $selectDistanceStr;
 	while( defined( $resultHash = $sth->fetchrow_hashref ) ) {
 		$selectDistanceStr = $selectDistanceStrCopy;
-		my $usmsSwimmerId = $resultHash->{'USMSSwimmerId'};
+		my $regNum = $resultHash->{'RegNum'};
+		my $usmsSwimmerId;
+		if( ! defined $regNum ) {
+			# we didn't get a regnum - must have used the OW history which only gives us the usmsSwimmerId. 
+			# construct our own "regnum".
+			$usmsSwimmerId = $resultHash->{'USMSSwimmerId'};
+			$regNum = "xxxx-" . $usmsSwimmerId;
+		} else {
+			# we got a regnum - construct the usmsSwimmerId
+			($usmsSwimmerId) = $regNum =~ m/....-(.*)$/;
+		}
+				
 		my $eventid = $resultHash->{'eventid'};
 		my $suitCat = $resultHash->{'Category'};
 		if( $usmsSwimmerId eq $debugSwimmerId ) {
@@ -691,9 +701,10 @@ sub GetSwimmersName( $$ ) {
 		$yearOfBirth = $resultHash->{"DateOfBirth"};
 		$yearOfBirth =~ s/-.*$//;
 	} else {
-#		if( $PMSConstants::debug > 10 ) {
+		# this swimmer was not a PMS swimmer - we'll return $INVALID_SWIMMERS_NAME and ignore them.
+		if( $PMSConstants::debug > 10 ) {
 			print "ERROR in GetSwimmersName(): USMSId '$USMSId' not found in RSIND. Query='$query'\n";
-#		}
+		}
 	}
 	
 	return ($name, $gender, $yearOfBirth);
@@ -879,10 +890,10 @@ sub GenerateHTMLResults( $$$ ) {
 	PMSTemplate::ProcessHTMLTemplate( $templateCategoryDefinitionStart_PathName, $generatedFileHandle );
 	my $categoriesRef = PMSMacros::GetCategoryArrayRef();
 	my $numCategories = scalar( @{$categoriesRef} ) - 2;		# start at 1, not 0! And ignore the fake highest one
-#for( my $i = $numCategories; $i >= 0; $i-- ) {
-	for( my $i = $numCategories; $i > 0; $i-- ) {
+	for( my $i = $numCategories; $i >= 0; $i-- ) {
 		my $minSwimsForThisCategory = $categoriesRef->[$i]{"minCount"};
 		my $maxSwimsForThisCategory = $categoriesRef->[$i]{"maxCount"};
+		my $patch = $categoriesRef->[$i]{"patch"};
 		my $maxString;
 		# we're starting with the highest valued category and going down to least valued. is
 		# this one the highest valued one?
@@ -893,14 +904,29 @@ sub GenerateHTMLResults( $$$ ) {
 		}
 		PMSStruct::GetMacrosRef()->{"CategoryName"} = $categoriesRef->[$i]{"name"};
 		PMSStruct::GetMacrosRef()->{"RangeOfSwimsInCategory"} = $minSwimsForThisCategory . $maxString;
+		PMSStruct::GetMacrosRef()->{"ThePatch"} = $patch;
+		if( $i == 1 ) {
+			# this is the Trout row - put a hot spot at the end of the line
+			PMSStruct::GetMacrosRef()->{"HotSpot"} = 
+				'<a style="color:white" onclick="TogglePreTrout(event);return false" href="#">x</a>';
+		} else {
+			PMSStruct::GetMacrosRef()->{"HotSpot"} = '';
+		}
+		# handle pre-trout
+		if( $i == 0 ) {
+			# this is the pre-Trout row - hide the row for now
+			PMSStruct::GetMacrosRef()->{"trStyle"} = ' CategoryRowPreTrout" style="display:none"';
+		} else {
+			# normal row - show it
+			PMSStruct::GetMacrosRef()->{"trStyle"} = '"';
+		}
 		PMSTemplate::ProcessHTMLTemplate( $templateCategoryDefinition_PathName, $generatedFileHandle );
-	}
+	} # end of for( my $i =....
 	PMSTemplate::ProcessHTMLTemplate( $templateCategoryDefinitionEnd_PathName, $generatedFileHandle );
 	
 	# display the recognition section...
 	PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSectionStart_PathName, $generatedFileHandle );
-#for( my $i = $numCategories; $i >= 0; $i-- ) {
-	for( my $i = $numCategories; $i > 0; $i-- ) {
+	for( my $i = $numCategories; $i >= 0; $i-- ) {
 		my $numSwimmers = $categoriesRef->[$i]{$endYear . "-swimmers"};
 		my $numSwimmersString = "No swimmers (yet)";
 		if( $numSwimmers > 0 ) {
@@ -910,10 +936,34 @@ sub GenerateHTMLResults( $$$ ) {
 			}
 			$numSwimmersString = "Total of $numSwimmers $swimmers:";
 		}
+		# handle pre-trout		
+		if( $i == 0 ) {
+			# this is the pre-Trout row - hide the row for now
+			PMSStruct::GetMacrosRef()->{"trStyle"} = ' CategoryRowPreTrout" style="display:none"';
+			# this is a special case: show the number of swimmers with N swims, for N = max swims for this
+			# category (e.g. 4 if Trout min is 5) down to 1 swims.  Useful for ordering patches.
+			my @preTroutSwims = CountPreTroutSwims( $cumulationsRef );
+			my $min = $categoriesRef->[0]{"minCount"};
+			my $max = $categoriesRef->[0]{"maxCount"};
+			$numSwimmersString .= " (";
+			for( my $i = $max; $i >= $min; $i-- ) {
+				my $swims = "swims";
+				$swims = "swim" if( $i == 1);
+				$numSwimmersString .= "$i $swims: $preTroutSwims[$i]";
+				if( $i == $min ) {
+					$numSwimmersString .= ")";
+				} else {
+					$numSwimmersString .= ", ";
+				}
+			}
+		} else {
+			# normal row - show it
+			PMSStruct::GetMacrosRef()->{"trStyle"} = '"';
+		}
 		PMSStruct::GetMacrosRef()->{"CategoryName"} = $categoriesRef->[$i]{"name"};
 		PMSStruct::GetMacrosRef()->{"NumSwimmersInCategory"} = $numSwimmersString;
 		PMSTemplate::ProcessHTMLTemplate( $templateRecognitionStart_PathName, $generatedFileHandle );
-#next if( $i == 0 );
+		next if( $i == 0 );   # comment this to show all pre-trout swimmers (a lot!) uncomment this to skip showing pre-trout
 		if( $numSwimmers > 0 ) {
 			PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmersListStart_PathName, $generatedFileHandle );
 			# we've got some swimmers in this category - display details on each swimmer
@@ -939,6 +989,14 @@ sub GenerateHTMLResults( $$$ ) {
 			
 				my $lastYear = GetSwimmersLastYear( $USMSId );
 				PMSStruct::GetMacrosRef()->{"LatestTeam"} = $cumulationsRef->{ $USMSId . "-team-$lastYear"};
+				# handle pre-trout
+				if( $i == 0 ) {
+					# this is the pre-Trout row - hide the row for now
+					PMSStruct::GetMacrosRef()->{"trStyle"} = ' CategoryRowPreTrout" style="display:none"';
+				} else {
+					# normal row - show it
+					PMSStruct::GetMacrosRef()->{"trStyle"} = '"';
+				}
 				PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmerStart_PathName, $generatedFileHandle );
 				
 				# supply OW details for this swimmer:
@@ -990,7 +1048,7 @@ sub GenerateHTMLResults( $$$ ) {
 		# all done displaying swimmers in this category - finish up this category so we can start the next one
 		PMSTemplate::ProcessHTMLTemplate( $templateRecognitionEnd_PathName, $generatedFileHandle );
 
-	}
+	} # end of for( my $i =...
 	# all done displaying the recognition of ALL swimmers of ALL categoryes	
 	PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSectionEnd_PathName, $generatedFileHandle );
 
@@ -1003,6 +1061,33 @@ sub GenerateHTMLResults( $$$ ) {
 
 	close( $generatedFileHandle );
 } # end of GenerateHTMLResults()
+
+
+
+# 			my @preTroutSwims = CountPreTroutSwims($cumulationsRef);
+sub CountPreTroutSwims($) {
+	my $cumulationsRef = $_[0];
+	my @preTroutSwims = (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);		# probably too big but just in case...
+	my $categoriesRef = PMSMacros::GetCategoryArrayRef();
+
+	my $min = $categoriesRef->[0]{"minCount"};
+	my $max = $categoriesRef->[0]{"maxCount"};
+	foreach my $key( keys %$cumulationsRef ) {
+		if( index( $key, '-' ) == -1 ) {
+			# $key is the usms swimmer id of a swimmer - are they a pre-trout?
+			my $numSwimsForThisSwimmer = $cumulationsRef->{"$key-0"};
+			if( ($numSwimsForThisSwimmer >= $min) && ($numSwimsForThisSwimmer <= $max) ) {
+				$preTroutSwims[$numSwimsForThisSwimmer]++;
+			}
+		}
+	}
+	return @preTroutSwims;
+} # end of CountPreTroutSwims()
+
+
+
+
+
 
 
 
