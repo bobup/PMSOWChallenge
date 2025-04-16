@@ -5,6 +5,15 @@
 # Copyright (c) 2023 Bob Upshaw.  This software is covered under the Open Source MIT License 
 
 ####################
+# pragmas
+####################
+use DBI;
+use strict;
+use sigtrap;
+use warnings;
+use HTTP::Tiny;
+
+####################
 # PERL modules and initialization to help compiling
 ####################
 use File::Basename;
@@ -122,7 +131,7 @@ BEGIN {
 
 my $UsageString = <<bup
 Usage:  
-	$appProgName [Syear[-Eyear]]
+	$appProgName [[Syear][-Eyear]]
 	[-dDebugValue]
 	[-tPROPERTYFILE]
 	[-sSOURCEDATADIR]
@@ -132,6 +141,7 @@ where all arguments are optional:
 	year-year - if present can be in one of these forms:
 			Syear
 			Syear-Eyear
+			-Eyear
 		where Syear is the "start year", and Eyear is the "end year".  We will process all years
 		between Syear and Eyear, inclusive. If Syear is not supplied then 2021 is used.  If Eyear is not
 		supplied then the current year is used.  Syear cannot be less than 2008. 
@@ -154,13 +164,6 @@ uses the RSIND table for those years to map USMSSwimmerIds to swimmer names.
 bup
 ;
 
-####################
-# pragmas
-####################
-use DBI;
-use strict;
-use sigtrap;
-use warnings;
 
 
 ####################
@@ -236,6 +239,13 @@ while( defined( $arg = shift ) ) {
 			$numErrors++;
 		}
 		SWITCH: {
+	        if( $flag =~ m/^-E$/ ) {
+				# we have the case of 	$appProgName -Eyear ...
+	        	$value = $arg;			# maintain the case of chars
+				$value =~ s/^-.//;		# get rid of flag ('-E')
+				$endYear = $value;
+				last SWITCH;
+	        }
 	        if( $flag =~ m/^-d$/ ) {$PMSConstants::debug=$value; last SWITCH; }
 	        if( $flag =~ m/^-t$/ ) {
 	        	$value = $arg;			# maintain the case of chars
@@ -277,23 +287,23 @@ while( defined( $arg = shift ) ) {
 			if( !defined $Eyear ) {
 				$Eyear = $endYear;
 			}
-			if( 
-				($Syear > $Eyear) ||
-				($Syear < 2008) ||
-				($Eyear > $yearBeingProcessed)
-				) {
-				print "${appProgName}:: FATAL ERROR:  Invalid value for start year ($Syear) or " .
-					"end year ($Eyear): '$value'\n";
-				$numErrors++;
-			} else {
-				$startYear = $Syear;
-				$endYear = $Eyear;
-			}
+			$startYear = $Syear;
+			$endYear = $Eyear;
 			
-print "startYear='$startYear', endYear='$endYear'\n";
+			#print "startYear='$startYear', endYear='$endYear'\n";
 		}
 	}
 } # end of while - done getting command line args
+
+if( 
+	($startYear > $endYear) ||
+	($startYear < 2008) ||
+	($endYear > $yearBeingProcessed)
+	) {
+	print "${appProgName}:: FATAL ERROR:  Invalid value for start year ($startYear) or " .
+		"end year ($endYear)\n";
+	$numErrors++;
+}
 
 
 if( $helpRequested ) {
@@ -401,7 +411,8 @@ PMSStruct::GetMacrosRef()->{"generatedFileName"} = $generatedFileName;
 PMSStruct::GetMacrosRef()->{"simpleGeneratedFileName"} = $simpleGeneratedFileName;
 PMSLogging::PrintLog( "", "", "  ...generatedFiles set to: '$generatedFiles'", 1 );
 PMSLogging::PrintLog( "", "", "", 1 );
-
+my $simplePreTroutGeneratedFileName = $yearGroup . "OWPreTroutOWChallengeResults.html";		# used for pre-trout swimmers.
+my $preTroutGeneratedFileName = $generatedFiles . $simplePreTroutGeneratedFileName;			# full path name
 
 # Everything looks good so far.  Now it's time to initialize our connection to the MySQL database
 my $dbh = PMS_MySqlSupport::GetMySqlHandle();
@@ -429,9 +440,27 @@ if( defined $mergedMemberDataFile ) {
 
 }
 
+# before we start we're going to figure out the current OW Points year.
+my $currentOWPointsYear = "";
+my $query = "SELECT * FROM Events LIMIT 1";
+my ( $sth, $rv ) = PMS_MySqlSupport::PrepareAndExecute( $dbh, $query );
+if( defined( my $resultHash = $sth->fetchrow_hashref ) ) {
+	my $date = $resultHash->{'Date'};
+	$date =~ s/-.*$//;
+	$currentOWPointsYear = $date;
+} else {
+	PMSLogging::DumpError( "", 0, "FATAL ERROR #2:  Unable to fetch a database row.  See the logs", 1 );
+	die( "The above error was FATAL!\n" );
+}
+
+
+
+
+
 # write some initial logging info to the log file
 PMSLogging::PrintLog( "", "", "Processing of $appProgName Begun: " . PMSStruct::GetMacrosRef()->{"currentDateTime"} . " ", 1 );
 PMSLogging::PrintLog( "", "", "The range of years being processed: '$startYear' - '$endYear'", 1 );
+PMSLogging::PrintLog( "", "", "The current OW Points year is '$currentOWPointsYear'", 1 );
 PMSLogging::PrintLogNoNL( 0, 0, "debug set to: $PMSConstants::debug ", 1 );
 	if( $PMSConstants::debug == 0 ) {PMSLogging::PrintLog("", "", "(Debugging turned off)", 1)} 
 	else {PMSLogging::PrintLog("", "", "(Debugging turned on)", 1)}
@@ -473,138 +502,180 @@ InitializeTotalNumberSwimmers( \%totalNumSwimmers, $startYear, $endYear );
 
 # Analyze each year individually:
 foreach my $workingYear ( $startYear..$endYear ) {
-	# initialize our counts for the working year:
-	InitializeWorkingYear( $categoriesRef, $numCategories, $workingYear );
-	# get a list of all events swum during the working year:
-	
-	my ($selectStr, $selectDistanceStr);
-	if( $workingYear == $yearBeingProcessed ) {
-		# special case: if we're processing OW swims for the current year we can't look in the history
-		# tables, but instead we'll look in the current OW Points tables
-		print "workingYear = '$workingYear' which is the same as yearBeingProcessed\n";
-#		$selectStr = "SELECT SUBSTRING(RegNum, 6, 5) AS USMSSwimmerId, Swim.EventId as eventid, Events.Category FROM " .
-		$selectStr = "SELECT RegNum, Swim.EventId as eventid, Events.Category FROM " .
-			"RegNums Join Swim Join Events WHERE Swim.SwimmerId = RegNums.SwimmerId " .
-			"AND Events.EventId = Swim.EventId " .
-	  		"ORDER BY RegNum";
-		$selectDistanceStr = "SELECT Distance from Events where EventId = xxxx";
-	} else {
-		# use our OW history
-		print "workingYear = '$workingYear'\n";
-		$selectStr = "SELECT USMSSwimmerId, UniqueEventId as eventid, Category FROM SwimmerEventHistory WHERE Date
-			LIKE '$workingYear%' ORDER BY USMSSwimmerId";
-		$selectDistanceStr = "SELECT Distance from EventHistory where UniqueEventID = xxxx";
-	}
-	#print "usmsSwimmerId: '$usmsSwimmerId', 1st query; '$selectStr'\n";
-	my( $sth, $rv ) = PMS_MySqlSupport::PrepareAndExecute( $dbh, $selectStr );
+	my( $sth, $rv );
 	my $resultHash;
-	# each event swum represents a single swim by a single swimmer in a specific year ($workingYear). 
-	# Increment the number of swims for the working year for each specific swimmer:
-	my $selectDistanceStrCopy = $selectDistanceStr;
-	while( defined( $resultHash = $sth->fetchrow_hashref ) ) {
-		$selectDistanceStr = $selectDistanceStrCopy;
-		my $regNum = $resultHash->{'RegNum'};
-		my $usmsSwimmerId;
-		if( ! defined $regNum ) {
-			# we didn't get a regnum - must have used the OW history which only gives us the usmsSwimmerId. 
-			# construct our own "regnum".
-			$usmsSwimmerId = $resultHash->{'USMSSwimmerId'};
-			$regNum = "xxxx-" . $usmsSwimmerId;
+	my ($selectStr, $selectDistanceStr);
+	# make sure we're ready to process this year:
+	my $RsindTableExists = PMS_MySqlSupport::DoesTableExist( "RSIDN_$workingYear" );
+	if( $RsindTableExists == 1 ) {
+		# yes! this year has processed at least one OW event. 
+		# initialize our counts for the working year:
+		InitializeWorkingYear( $categoriesRef, $numCategories, $workingYear );
+
+		# get a list of all events swum during the working year. How we do that depends on whether or not
+		# the workingYear is the current OWPoints year or a historical year:
+		if( $workingYear == $currentOWPointsYear ) {
+			# if we're processing OW swims for the current OWPoints year we can't look in the history
+			# tables, but instead we'll look in the current OW Points tables
+			PMSLogging::PrintLog( "", "", "workingYear = '$workingYear' which is the current OW Points year", 1 );
+			$selectStr = "SELECT RegNum, Swim.EventId as eventid, Events.Category FROM " .
+				"RegNums Join Swim Join Events WHERE Swim.SwimmerId = RegNums.SwimmerId " .
+				"AND Events.EventId = Swim.EventId " .
+				"AND RegNum LIKE '38%' " .
+				"ORDER BY RegNum";
+			# NOTE: Above "AND RegNum LIKE '38%'" filters out non-PMS
+			$selectDistanceStr = "SELECT Distance from Events where EventId = xxxx";
 		} else {
-			# we got a regnum - construct the usmsSwimmerId
-			($usmsSwimmerId) = $regNum =~ m/....-(.*)$/;
+			# use our OW history
+			PMSLogging::PrintLog( "", "", "workingYear = '$workingYear'", 1 );
+			$selectStr = "SELECT USMSSwimmerId, UniqueEventId as eventid, Category FROM SwimmerEventHistory WHERE Date
+				LIKE '$workingYear%' ORDER BY USMSSwimmerId";
+			# NOTE: Above query will only find PMS swimmers because that's all we put into the history table.
+			$selectDistanceStr = "SELECT Distance from EventHistory where UniqueEventID = xxxx";
 		}
-				
-		my $eventid = $resultHash->{'eventid'};
-		my $suitCat = $resultHash->{'Category'};
-		if( $usmsSwimmerId eq $debugSwimmerId ) {
-			print "usmsSwimmerId: '$usmsSwimmerId', eventid='$eventid', suitCat='$suitCat'. 1st query; '$selectStr'\n";
-		}
-		# the following InitializeSwimmer() does nothing if we've seen this swimmer before:
-		my $isValidSwimmer = InitializeSwimmer( \%cumulations, $usmsSwimmerId, $startYear, $endYear, $workingYear );
-		if( $isValidSwimmer ) {
-			$cumulations{ $usmsSwimmerId . "-$workingYear"}++;
-			$cumulations{ $usmsSwimmerId . "-0"}++;		# total swims for this swimmer for all years up to and including this working Year
-			# get the distance of this Swim
-			$selectDistanceStr =~ s/xxxx/$eventid/;
-			if( $usmsSwimmerId eq $debugSwimmerId ) {
-				print "usmsSwimmerId: '$usmsSwimmerId', distance query; '$selectDistanceStr'\n";
-			}
-			my( $sth2, $rv2 ) = PMS_MySqlSupport::PrepareAndExecute( $dbh, $selectDistanceStr );
-			my $resultHash2;
-			if( defined( $resultHash2 = $sth2->fetchrow_hashref ) ) {
-				my $distance = $resultHash2->{'Distance'};
-				if( $usmsSwimmerId eq $debugSwimmerId ) {
-					print "year: $workingYear, eventid: $eventid, distance=$distance, cat=$suitCat\n";
-					print "BEFORE: cumulations{$usmsSwimmerId-$workingYear-$suitCat} = " . 
-						$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}  . "\n";
-				}
-				$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}++;
-				if( $usmsSwimmerId eq $debugSwimmerId ) {
-					print "AFTER: cumulations{$usmsSwimmerId-$workingYear-$suitCat} = " . 
-						$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}  . "\n";
-				}
-				$cumulations{ $usmsSwimmerId . "-distance-$workingYear"} += $distance;
-				$cumulations{ $usmsSwimmerId . "-distance-0"} += $distance;
-				if( $usmsSwimmerId eq $debugSwimmerId ) {
-					print "year: $workingYear, eventid: $eventid, distance=$distance, total so far=" . 
-						$cumulations{ $usmsSwimmerId . "-distance-$workingYear"} . "\n";
-				}
-				# get the team this swimmer swam for (if we don't have it already):
-				my $swimmersTeamForThisYear = $cumulations{ $usmsSwimmerId . "-team-$workingYear"};
-				if( $swimmersTeamForThisYear eq "?" ) {
-					# get the team this swimmer swam for during this year:
-					my $selectTeam = "SELECT RegisteredTeamInitialsStr as Team from RSIDN_$workingYear " .
-						"WHERE USMSSwimmerId='$usmsSwimmerId'";
-					my( $sth3, $rv3 ) = PMS_MySqlSupport::PrepareAndExecute( $dbh, $selectTeam );
-					if( defined( my $resultHash3 = $sth3->fetchrow_hashref ) ) {
-						# remember this swimmer's team
-						$cumulations{ $usmsSwimmerId . "-team-$workingYear"} = $resultHash3->{'Team'};
-					} else {
-						# we couldn't find the team this swimmer swam for!
-						PMSLogging::DumpWarning( "", 0, "${appProgName}: Unable to find Team for " .
-							"USMSId '$usmsSwimmerId in RSIND. Query='$selectTeam'", 1 );
-						$cumulations{ $usmsSwimmerId . "-team-$workingYear"} = "??";
+
+		#print "usmsSwimmerId: '$usmsSwimmerId', 1st query; '$selectStr'\n";
+		( $sth, $rv ) = PMS_MySqlSupport::PrepareAndExecute( $dbh, $selectStr );
+		# each event swum represents a single swim by a single swimmer in a specific year ($workingYear). 
+		# Increment the number of swims for the working year for each specific swimmer:
+		my $selectDistanceStrCopy = $selectDistanceStr;
+		while( defined( $resultHash = $sth->fetchrow_hashref ) ) {
+			# process the next swimmer in this working year
+			$selectDistanceStr = $selectDistanceStrCopy;
+			my $regNum = $resultHash->{'RegNum'};
+			my $usmsSwimmerId;
+			if( defined $regNum ) {
+				# the $workingYear == current OWPoints year...
+				# 10nov2024: Sometimes the OW results don't have a real regnum for a swimmer.  E.g. OEVT, or the
+				# results just don't give a regnum (empty field).  In these cases we just ignore the swimmer.
+				if( $regNum =~ m/^\d/ ) {
+					# we got a regnum - construct the usmsSwimmerId
+					($usmsSwimmerId) = $regNum =~ m/....-(.*)$/;
+					if( $usmsSwimmerId eq $debugSwimmerId ) {
+						print "workingYear == current OW Points year:  usmsSwimmerId: '$usmsSwimmerId', regNum='$regNum'\n";
 					}
-				} # end of get the team...
+				} else {
+					# we're going to ignore this swimmer
+					$regNum = undef;
+				}
+			} else {
+				# we didn't get a regnum - must have used the OW history which only gives us the usmsSwimmerId. 
+				# construct our own "regnum".
+				$usmsSwimmerId = $resultHash->{'USMSSwimmerId'};
+				if( defined $usmsSwimmerId ) {
+					$regNum = "xxxx-" . $usmsSwimmerId;
+					if( $usmsSwimmerId eq $debugSwimmerId ) {
+						print "workingYear NE current OW Points year:  usmsSwimmerId: '$usmsSwimmerId', regNum='$regNum'\n";
+					}
+				} # else leave the $regNum undefined and ignore this swimmer...
 			}
 		
-		}
-	}
-
-
-	foreach my $id (keys %cumulations) {
-		if( index( $id, "-" ) == -1 ) {
-			# $id is the key to a hash for a unique swimmer
-			if( $cumulations{"$id-0"} > 0 ) {
-				if( $cumulations{ $id . "-$workingYear"} > 0 ) {
-					$totalNumSwimmers{$workingYear}++;	# add this swimmer to the count of swimmers who swam OW this year
+			if( defined $regNum ) {
+				# we've got a swimmer to process
+				my $eventid = $resultHash->{'eventid'};
+				my $suitCat = $resultHash->{'Category'};
+				if( $usmsSwimmerId eq $debugSwimmerId ) {
+					print "usmsSwimmerId: '$usmsSwimmerId', eventid='$eventid', suitCat='$suitCat'. 1st query; '$selectStr'\n";
 				}
-				UpdateCategoryCount( $categoriesRef, $numCategories, $workingYear, $cumulations{"$id-0"} );
-				if( $PMSConstants::debug > 0 ) {
-					# debugging only: print the swimmer id's of all swimmers with at least $minDebugPoints points
-					if( $cumulations{"$id-0"} >= $minDebugPoints ) {
-						my $years = "for the years $startYear through $workingYear";
-						if( $workingYear == $startYear ) {
-							$years = "for the year $startYear";
-						}
-						print $cumulations{$id . "-name"} . " ($id) has " . $cumulations{"$id-0"} . " OW swims $years.\n";
+				# the following InitializeSwimmer() does nothing if we've seen this swimmer before:
+				my $isValidSwimmer = InitializeSwimmer( \%cumulations, $usmsSwimmerId, $startYear, $endYear, $workingYear );
+				if( $isValidSwimmer ) {
+					$cumulations{ $usmsSwimmerId . "-$workingYear"}++;
+					$cumulations{ $usmsSwimmerId . "-0"}++;		# total swims for this swimmer for all years up to and including this working Year
+					# get the distance of this Swim
+					$selectDistanceStr =~ s/xxxx/$eventid/;
+					if( $usmsSwimmerId eq $debugSwimmerId ) {
+						print "usmsSwimmerId: '$usmsSwimmerId', distance query; '$selectDistanceStr'\n";
 					}
-				} # end debugging
-			} # end of if( $cumulations{"$id-0"} > 0...
-		}
-	}
-	
-	print "  Number of swimmers for '$workingYear': $totalNumSwimmers{$workingYear}\n";
+					my( $sth2, $rv2 ) = PMS_MySqlSupport::PrepareAndExecute( $dbh, $selectDistanceStr );
+					my $resultHash2;
+					if( defined( $resultHash2 = $sth2->fetchrow_hashref ) ) {
+						my $distance = $resultHash2->{'Distance'};
+						if( $usmsSwimmerId eq $debugSwimmerId ) {
+							print "year: $workingYear, eventid: $eventid, distance=$distance, cat=$suitCat\n";
+							print "BEFORE: cumulations{$usmsSwimmerId-$workingYear-$suitCat} = " . 
+								$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}  . "\n";
+						}
+						$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}++;
+						if( $usmsSwimmerId eq $debugSwimmerId ) {
+							print "AFTER: cumulations{$usmsSwimmerId-$workingYear-$suitCat} = " . 
+								$cumulations{ $usmsSwimmerId . "-$workingYear-$suitCat"}  . "\n";
+						}
+						$cumulations{ $usmsSwimmerId . "-distance-$workingYear"} += $distance;
+						$cumulations{ $usmsSwimmerId . "-distance-0"} += $distance;
+						if( $usmsSwimmerId eq $debugSwimmerId ) {
+							print "year: $workingYear, eventid: $eventid, distance=$distance, total so far=" . 
+								$cumulations{ $usmsSwimmerId . "-distance-$workingYear"} . "\n";
+						}
+						# get the team this swimmer swam for (if we don't have it already):
+						my $swimmersTeamForThisYear = $cumulations{ $usmsSwimmerId . "-team-$workingYear"};
+						if( $swimmersTeamForThisYear eq "?" ) {
+							# get the team this swimmer swam for during this year:
+							my $selectTeam = "SELECT RegisteredTeamInitialsStr as Team from RSIDN_$workingYear " .
+								"WHERE USMSSwimmerId='$usmsSwimmerId'";
+							my( $sth3, $rv3 ) = PMS_MySqlSupport::PrepareAndExecute( $dbh, $selectTeam );
+							if( defined( my $resultHash3 = $sth3->fetchrow_hashref ) ) {
+								# remember this swimmer's team
+								$cumulations{ $usmsSwimmerId . "-team-$workingYear"} = $resultHash3->{'Team'};
+								if( $usmsSwimmerId eq $debugSwimmerId ) {
+									print "year: $workingYear, query='$selectTeam', team=$resultHash3->{'Team'}\n";
+								} 
+							} else {
+								# we couldn't find the team this swimmer swam for!
+								PMSLogging::DumpWarning( "", 0, "${appProgName}: Unable to find Team for " .
+									"USMSId '$usmsSwimmerId in RSIND. Query='$selectTeam'", 1 );
+								$cumulations{ $usmsSwimmerId . "-team-$workingYear"} = "(unknown)";
+							}
+						} # end of get the team...
+					}
+				} # end of if( $isValidSwimmer ...
+			} # end of processing a swimmer
+		} # end of processing all swimmers for this working year
 
-	if( $PMSConstants::debug > 0 ) {
-		foreach my $i (0..$numCategories) {
-			print "    Number of swimmers in the " . $categoriesRef->[$i]{"name"} . " category: " .
-				$categoriesRef->[$i]{$workingYear . "-swimmers"} . "\n";
+
+		foreach my $id (keys %cumulations) {
+			if( index( $id, "-" ) == -1 ) {
+				# $id is the key to a hash for a unique swimmer
+				if( $cumulations{"$id-0"} > 0 ) {
+					if( $cumulations{ $id . "-$workingYear"} > 0 ) {
+						$totalNumSwimmers{$workingYear}++;	# add this swimmer to the count of swimmers who swam OW this year
+					}
+					UpdateCategoryCount( $categoriesRef, $numCategories, $workingYear, $cumulations{"$id-0"} );
+					if( $PMSConstants::debug > 0 ) {
+						# debugging only: print the swimmer id's of all swimmers with at least $minDebugPoints points
+						if( $cumulations{"$id-0"} >= $minDebugPoints ) {
+							my $years = "for the years $startYear through $workingYear";
+							if( $workingYear == $startYear ) {
+								$years = "for the year $startYear";
+							}
+							print $cumulations{$id . "-name"} . " ($id) has " . $cumulations{"$id-0"} . " OW swims $years.\n";
+						}
+					} # end debugging
+				} # end of if( $cumulations{"$id-0"} > 0...
+			}
 		}
-	}
+	
+		print "  Number of swimmers for '$workingYear': $totalNumSwimmers{$workingYear}\n";
+
+		if( $PMSConstants::debug > 0 ) {
+			foreach my $i (0..$numCategories) {
+				print "    Number of swimmers in the " . $categoriesRef->[$i]{"name"} . " category: " .
+					$categoriesRef->[$i]{$workingYear . "-swimmers"} . "\n";
+			}
+		}
 			
+	} # end of Rsind table exists...
+	else {
+		# this working year doesn't have an RSIND file (yet?). We're going to skip it and all following years.
+		PMSLogging::DumpWarning( "", 0, "${appProgName}: No RSIND file for the year '$workingYear'. Skipping this " .
+			"year and any following.", 1 );
+		$endYear = $workingYear - 1;
+		PMSStruct::GetMacrosRef()->{"EndYear"} = $endYear;
+		last;
+	}
 } # end of each working year...
+
+
 
 # Now pass through our %cumulations hash table and get some numbers:
 
@@ -848,7 +919,13 @@ sub GenerateHTMLResults( $$$ ) {
 
 	# Here we will open the file into which we write our HTML results:
 	my $generatedFileHandle;
-	open( $generatedFileHandle, "> $generatedFileName" ) || die( "${appProgName}::  Can't open/create $generatedFileName: $!" );
+	open( $generatedFileHandle, "> $generatedFileName" ) || 
+		die( "${appProgName}::  Can't open/create $generatedFileName: $!" );
+	# we're also going to generate the pre-trout swimmers into a different file and use ajax to show them if requested.
+	my $generatedPreTroutFileHandle;
+	open( $generatedPreTroutFileHandle, "> $preTroutGeneratedFileName" ) || 
+		die( "${appProgName}::  Can't open/create $preTroutGeneratedFileName: $!" );
+
 
 	# locate all our template files:
 	my $templateRootRoot = "$appDirName/Templates/";        # directory location of master template files.
@@ -866,6 +943,7 @@ sub GenerateHTMLResults( $$$ ) {
 	my $templateRecognitionSectionStart_PathName = GetPathName( $templateRootRoot, \@templateDirs, "RecognitionSectionStart.html" );
 	my $templateRecognitionSectionEnd_PathName = GetPathName( $templateRootRoot, \@templateDirs, "RecognitionSectionEnd.html" );
 	my $templateRecognitionStart_PathName = GetPathName( $templateRootRoot, \@templateDirs, "RecognitionStart.html" );
+	my $templatePreTroutPlaceholder_PathName = GetPathName( $templateRootRoot, \@templateDirs, "PreTroutPlaceholder.html" );
 	my $templateRecognitionEnd_PathName = GetPathName( $templateRootRoot, \@templateDirs, "RecognitionEnd.html" );
 	my $templateRecognitionSwimmersListStart_PathName = GetPathName( $templateRootRoot, \@templateDirs, "RecognitionSwimmersListStart.html" );
 	my $templateRecognitionSwimmersListEnd_PathName = GetPathName( $templateRootRoot, \@templateDirs, "RecognitionSwimmersListEnd.html" );
@@ -873,16 +951,12 @@ sub GenerateHTMLResults( $$$ ) {
 	my $templateRecognitionSwimmerDetail_PathName = GetPathName( $templateRootRoot, \@templateDirs, "RecognitionSwimmerDetail.html" );
 	my $templateRecognitionSwimmerEnd_PathName = GetPathName( $templateRootRoot, \@templateDirs, "RecognitionSwimmerEnd.html" );
 
-
-
-
 	####################
 	# Begin processing our templates, generating our accumulated result file in the process
 	####################
 	if( $PMSConstants::debug >= 0 ) {
 		print "GenerateHTMLResults(): starting...";
 	}
-	
 	# start the HTML file:
 	PMSTemplate::ProcessHTMLTemplate( $templateOpenWaterHead_PathName, $generatedFileHandle );
 	
@@ -912,10 +986,11 @@ sub GenerateHTMLResults( $$$ ) {
 		} else {
 			PMSStruct::GetMacrosRef()->{"HotSpot"} = '';
 		}
+		
 		# handle pre-trout
 		if( $i == 0 ) {
 			# this is the pre-Trout row - hide the row for now
-			PMSStruct::GetMacrosRef()->{"trStyle"} = ' CategoryRowPreTrout" style="display:none"';
+			PMSStruct::GetMacrosRef()->{"trStyle"} = 'CategoryRowPreTrout" style="display:none"';
 		} else {
 			# normal row - show it
 			PMSStruct::GetMacrosRef()->{"trStyle"} = '"';
@@ -927,6 +1002,7 @@ sub GenerateHTMLResults( $$$ ) {
 	# display the recognition section...
 	PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSectionStart_PathName, $generatedFileHandle );
 	for( my $i = $numCategories; $i >= 0; $i-- ) {
+		# Generate the title line for this recognition:
 		my $numSwimmers = $categoriesRef->[$i]{$endYear . "-swimmers"};
 		my $numSwimmersString = "No swimmers (yet)";
 		if( $numSwimmers > 0 ) {
@@ -936,10 +1012,29 @@ sub GenerateHTMLResults( $$$ ) {
 			}
 			$numSwimmersString = "Total of $numSwimmers $swimmers:";
 		}
-		# handle pre-trout		
+
+		# We actually generate TWO recognition sections: one for all categories that we show by default, and
+		# another for the pre-trout swimmers. For this reason we will write the two recognition sections to two
+		# different files. More on this below.
+		my $outputFileHandle = $generatedFileHandle;	# default recognition section
+		
+		### if $i == 0 this means we're starting the "made up" category "pre-trout". We don't normally show
+		# that category but we're going to make it possible for the user to request seeing it. In this case we
+		# "finish" generating the recognition section and begin generating a DIFFERENT recognition section just
+		# for the pre-trouts. We'll generate that section to a different file, using Ajax to display that 
+		# file if requested by the user.
 		if( $i == 0 ) {
-			# this is the pre-Trout row - hide the row for now
-			PMSStruct::GetMacrosRef()->{"trStyle"} = ' CategoryRowPreTrout" style="display:none"';
+			# this is the pre-Trout row - finish the already generated recognition section:
+			# all done displaying the recognition of ALL swimmers of ALL categories	EXCEPT pre-trout
+			PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSectionEnd_PathName, $outputFileHandle );
+			# Now, begin a different recognition section just for the pre-trouts
+			$outputFileHandle = $generatedPreTroutFileHandle;
+			# this is where the pre-trout swimmers will go. We'll create a place-holder for them later and then 
+			# fill it in via ajax when requested by the user.
+			
+			# begin the pre-trout recognition section
+			PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSectionStart_PathName, $outputFileHandle );
+			PMSStruct::GetMacrosRef()->{"trStyle"} = 'CategoryRowPreTrout"';
 			# this is a special case: show the number of swimmers with N swims, for N = max swims for this
 			# category (e.g. 4 if Trout min is 5) down to 1 swims.  Useful for ordering patches.
 			my @preTroutSwims = CountPreTroutSwims( $cumulationsRef );
@@ -962,10 +1057,9 @@ sub GenerateHTMLResults( $$$ ) {
 		}
 		PMSStruct::GetMacrosRef()->{"CategoryName"} = $categoriesRef->[$i]{"name"};
 		PMSStruct::GetMacrosRef()->{"NumSwimmersInCategory"} = $numSwimmersString;
-		PMSTemplate::ProcessHTMLTemplate( $templateRecognitionStart_PathName, $generatedFileHandle );
-		next if( $i == 0 );   # comment this to show all pre-trout swimmers (a lot!) uncomment this to skip showing pre-trout
+		PMSTemplate::ProcessHTMLTemplate( $templateRecognitionStart_PathName, $outputFileHandle );
 		if( $numSwimmers > 0 ) {
-			PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmersListStart_PathName, $generatedFileHandle );
+			PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmersListStart_PathName, $outputFileHandle );
 			# we've got some swimmers in this category - display details on each swimmer
 			BeginEnumerationOfCategory( $categoriesRef, $i );
 			my $USMSId;
@@ -991,25 +1085,27 @@ sub GenerateHTMLResults( $$$ ) {
 				PMSStruct::GetMacrosRef()->{"LatestTeam"} = $cumulationsRef->{ $USMSId . "-team-$lastYear"};
 				# handle pre-trout
 				if( $i == 0 ) {
-					# this is the pre-Trout row - hide the row for now
-					PMSStruct::GetMacrosRef()->{"trStyle"} = ' CategoryRowPreTrout" style="display:none"';
+					# this is the pre-Trout row - 
+					PMSStruct::GetMacrosRef()->{"trStyle"} = 'CategoryRowPreTrout" style="display:table-row"';
 				} else {
 					# normal row - show it
 					PMSStruct::GetMacrosRef()->{"trStyle"} = '"';
 				}
-				PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmerStart_PathName, $generatedFileHandle );
+				PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmerStart_PathName, $outputFileHandle );
 				
 				# supply OW details for this swimmer:
 				foreach my $workingYear ( $startYear..$endYear ) {
 					my $numOWSwims = $cumulationsRef->{ $USMSId . "-" . $workingYear };
 					if( $numOWSwims > 0 ) {
-						# construct a link to this swimmer's OW Points page:
-						my $URL = "https://data.pacificmasters.org/points/OWPoints/Historical/" .
-							"xxxx/GeneratedFiles/xxxxPacMastersAccumulatedResults.html";
-						if( $workingYear == PMSStruct::GetMacrosRef()->{"YearBeingProcessed"} ) {
-							$URL = "https://data.pacificmasters.org/points/OWPoints/xxxxPacMastersAccumulatedResults.html";
-						}
-						$URL =~ s/xxxx/$workingYear/g;
+						# the following will construct a link to this swimmer's OW Points page in one of the 
+						# following two forms:
+						#   https://data.pacificmasters.org/points/OWPoints/Historical/xxxx/GeneratedFiles/xxxxPacMastersAccumulatedResults.html
+						# or
+						#	https://data.pacificmasters.org/points/OWPoints/xxxxPacMastersAccumulatedResults.html
+						# where 'xxxx' is the workingYear.
+						# or
+						#	some other URL that isn't right but doesn't generate a 404. This is the worst case.
+						my $URL = LinkToOWPointsForThisYear( $workingYear );
 						
 						# we'll break down their swims based on category of suit:
 						my ($numSwimCat1, $numSwimCat2) = (
@@ -1036,21 +1132,27 @@ sub GenerateHTMLResults( $$$ ) {
 						PMSStruct::GetMacrosRef()->{"OWSwims"}	= $numOWSwims;
 						PMSStruct::GetMacrosRef()->{"OWMiles"}	= $cumulationsRef->{ $USMSId . "-distance-$workingYear"};
 						PMSStruct::GetMacrosRef()->{"ThisYearsTeam"} = $cumulationsRef->{ $USMSId . "-team-$workingYear"};						
-						PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmerDetail_PathName, $generatedFileHandle );
+						PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmerDetail_PathName, $outputFileHandle );
 					}
 				}
 				# done with details for this swimmer
-				PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmerEnd_PathName, $generatedFileHandle );
+				PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmerEnd_PathName, $outputFileHandle );
 			}
 			# done displaying details for each swimmer in this category
-			PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmersListEnd_PathName, $generatedFileHandle );
+			PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSwimmersListEnd_PathName, $outputFileHandle );
 		}
 		# all done displaying swimmers in this category - finish up this category so we can start the next one
-		PMSTemplate::ProcessHTMLTemplate( $templateRecognitionEnd_PathName, $generatedFileHandle );
+		PMSTemplate::ProcessHTMLTemplate( $templateRecognitionEnd_PathName, $outputFileHandle );
 
+		if( $i == 0 ) {
+			# all done displaying the recognition of ALL swimmers of the pre-trout categorye	
+			PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSectionEnd_PathName, $outputFileHandle );
+		}
 	} # end of for( my $i =...
-	# all done displaying the recognition of ALL swimmers of ALL categoryes	
-	PMSTemplate::ProcessHTMLTemplate( $templateRecognitionSectionEnd_PathName, $generatedFileHandle );
+
+	# we're done with both recognition files. Now, put a placeholder into the file holding all non-pre-trout 
+	# recognition swimmers so ajax can add the pre-trout swimmers if requested by the user.
+	PMSTemplate::ProcessHTMLTemplate( $templatePreTroutPlaceholder_PathName, $generatedFileHandle );
 
 	# all done with the page
 	PMSTemplate::ProcessHTMLTemplate( $templateOpenWaterTail_PathName, $generatedFileHandle );
@@ -1060,6 +1162,7 @@ sub GenerateHTMLResults( $$$ ) {
 	}
 
 	close( $generatedFileHandle );
+	close( $generatedPreTroutFileHandle );
 } # end of GenerateHTMLResults()
 
 
@@ -1255,6 +1358,53 @@ sub GetSwimmersLastYear( $ ) {
 	}
 	return $result;
 } # end of GetSwimmersLastYear()
+
+
+
+# This is a cache of OW Points links for various years
+my @linksForWorkingYear = ();
+
+# 						my $URL = LinkToOWPointsForThisYear( $workingYear );
+sub LinkToOWPointsForThisYear( $ ) {
+	my $workingYear = $_[0];
+	my $result = "";
+	my ($url, $url2);
+	my $httpResponse;
+	my $tinyHttp = HTTP::Tiny->new( );
+
+	if( defined( $linksForWorkingYear[$workingYear] ) ) {
+		# we already know the location of the OW points for this year.
+		$result = $linksForWorkingYear[$workingYear];
+	} else {
+		# we don't know where the OW points are for this year, so we'll figure it out.
+		$url = "https://data.pacificmasters.org/points/OWPoints/Historical/$workingYear/" .
+			"GeneratedFiles/$workingYear" . "PacMastersAccumulatedResults.html";
+		$httpResponse = $tinyHttp->get( $url );
+		if( $httpResponse->{success} ) {
+		  $result = $url;
+		} else {
+			$url2 = "https://data.pacificmasters.org/points/OWPoints/$workingYear" .
+				"PacMastersAccumulatedResults.html";
+			$httpResponse = $tinyHttp->get( $url2 );
+			if( $httpResponse->{success} ) {
+			  $result = $url2;
+			} else {
+				# ohoh....
+				PMSLogging::DumpError( "", 0, "${appProgName}::LinkToOWPointsForThisYear(): Unable to find " .
+					"the OW Points page for the year '$workingYear'.  Tried:\n" .
+					"    $url\n    and\n    $url2", 1 );
+				$result = "https://www.pacificmasters.org/";
+			}
+		}	
+		# at this point we have the URL of the OW points page for this year. Save it so we don't have to figure it 
+		# out again.
+		$linksForWorkingYear[$workingYear] = $result;
+		#print "Set link for '$workingYear' to '$result'\n";
+	}
+	return $result;
+} # end of LinkToOWPointsForThisYear()
+
+
 
 
 # end of OWChallenge.pl

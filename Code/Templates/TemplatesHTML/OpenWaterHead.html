@@ -15,15 +15,11 @@
 function TogglePreTrout( event ) {
 		var r = confirm( "Show Pre-Trout? (It could be quite large!)" );
 		if( r ) {
+			$("#PreTroutPlaceholder").load("2025PacMastersOWPreTroutOWChallengeResults.html");
 			var objs = document.getElementsByClassName('CategoryRowPreTrout');
 			for( i=0; i < objs.length; i++ ) {
 				objs[i].style.display="table-row";
 			}
-		
-		
-		
-		
-//			document.getElementById("CategoryRowPreTrout").style.display="table-row";
 		}
 }  // end of TogglePreTrout()
 
